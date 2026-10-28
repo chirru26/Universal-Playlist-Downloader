@@ -51,6 +51,13 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;
 }
 
+function parseIsoDuration(value: unknown): number | undefined {
+  if (typeof value !== "string") return undefined;
+  const match = value.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (!match) return undefined;
+  return Number(match[1] ?? 0) * 3600 + Number(match[2] ?? 0) * 60 + Number(match[3] ?? 0);
+}
+
 export async function getYoutubePlaylistMetadata(input: URL, pageToken?: string): Promise<PlaylistMetadata> {
   const apiKey = process.env.YOUTUBE_DATA_API_KEY;
   if (!apiKey) throw new ProviderError("YouTube metadata is not configured on this server.", "NOT_CONFIGURED", 503);
@@ -78,38 +85,56 @@ export async function getYoutubePlaylistMetadata(input: URL, pageToken?: string)
   ]);
 
   const playlistItems = Array.isArray(playlistData.items) ? playlistData.items as Record<string, unknown>[] : [];
-  const playlistSnippet = (playlistItems[0]?.snippet ?? {}) as Record<string, unknown>;
-  const snippet = (playlistSnippet ?? {}) as Record<string, unknown>;
+  const snippet = (playlistItems[0]?.snippet ?? {}) as Record<string, unknown>;
   const rawItems = Array.isArray(itemData.items) ? itemData.items as Record<string, unknown>[] : [];
+
+  const ids = rawItems.map((item) => {
+    const resource = ((item.snippet ?? {}) as Record<string, unknown>).resourceId as Record<string, unknown> | undefined;
+    return readString(resource?.videoId);
+  }).filter(Boolean);
+
+  const durationById = new Map<string, number>();
+  if (ids.length > 0) {
+    const videosUrl = new URL("https://www.googleapis.com/youtube/v3/videos");
+    videosUrl.searchParams.set("part", "contentDetails");
+    videosUrl.searchParams.set("id", ids.join(","));
+    videosUrl.searchParams.set("key", apiKey);
+    const videoData = await fetch(videosUrl, { signal: AbortSignal.timeout(8000), cache: "no-store" }).then(readJson);
+    const videos = Array.isArray(videoData.items) ? videoData.items as Record<string, unknown>[] : [];
+    for (const video of videos) {
+      const videoId = readString(video.id);
+      const details = (video.contentDetails ?? {}) as Record<string, unknown>;
+      const duration = parseIsoDuration(details.duration);
+      if (videoId && duration !== undefined) durationById.set(videoId, duration);
+    }
+  }
 
   const tracks = rawItems.flatMap((item): NormalizedTrack[] => {
     const trackSnippet = (item.snippet ?? {}) as Record<string, unknown>;
-    const details = (item.contentDetails ?? {}) as Record<string, unknown>;
     const resource = (trackSnippet.resourceId ?? {}) as Record<string, unknown>;
     const videoId = readString(resource.videoId);
     if (!videoId) return [];
     const thumbnails = (trackSnippet.thumbnails ?? {}) as Record<string, unknown>;
     const thumbnail = (thumbnails.high ?? thumbnails.medium ?? thumbnails.default ?? {}) as Record<string, unknown>;
-    const duration = typeof details.videoPublishedAt === "string" ? undefined : undefined;
+    const artworkUrl = safeArtworkUrl(thumbnail.url);
+    const durationSeconds = durationById.get(videoId);
 
     return [{
       providerTrackId: videoId,
       title: readString(trackSnippet.title) || "Untitled video",
       artist: readString(trackSnippet.videoOwnerChannelTitle) || readString(trackSnippet.channelTitle),
-      ...(duration ? { durationSeconds: duration } : {}),
-      ...(safeArtworkUrl(thumbnail.url) ? { artworkUrl: safeArtworkUrl(thumbnail.url) } : {}),
+      ...(durationSeconds !== undefined ? { durationSeconds } : {}),
+      ...(artworkUrl ? { artworkUrl } : {}),
     }];
   });
 
+  const pageInfo = (itemData.pageInfo ?? {}) as Record<string, unknown>;
   return {
     provider: "youtube",
     title: readString(snippet.title) || "YouTube playlist",
     tracks,
     ...(typeof itemData.nextPageToken === "string" ? { nextPageToken: itemData.nextPageToken } : {}),
-    ...(typeof itemData.pageInfo === "object" && itemData.pageInfo !== null &&
-      typeof (itemData.pageInfo as Record<string, unknown>).totalResults === "number"
-      ? { totalTracks: (itemData.pageInfo as Record<string, number>).totalResults }
-      : {}),
+    ...(typeof pageInfo.totalResults === "number" ? { totalTracks: pageInfo.totalResults } : {}),
   };
 }
 
@@ -169,7 +194,6 @@ export async function getSpotifyPlaylistMetadata(input: URL, pageOffset = 0): Pr
   });
   const data = await readJson(response);
 
-  const images = Array.isArray(data.images) ? data.images as Record<string, unknown>[] : [];
   const tracksContainer = (data.tracks ?? {}) as Record<string, unknown>;
   const rawItems = Array.isArray(tracksContainer.items) ? tracksContainer.items as Record<string, unknown>[] : [];
 
