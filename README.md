@@ -2,7 +2,7 @@
 
 A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript, Tailwind CSS, and MongoDB.
 
-> **Current status:** Milestone 2 adds the Mongoose connection layer, a download-job model, and a health endpoint. Playlist provider adapters, real metadata retrieval, background processing, audio conversion, and downloads are not implemented yet.
+> **Current status:** The app has a responsive UI, URL/provider detection, a metadata API foundation for YouTube playlists and Spotify playlists/albums, a MongoDB connection layer, a download-job model, a health endpoint, and CI configuration. Provider metadata calls require your own API credentials. SoundCloud integration, persisted jobs, background processing, audio conversion, and actual downloads are not implemented yet.
 
 ## Stack
 
@@ -10,13 +10,15 @@ A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript,
 - Tailwind CSS v4
 - Zod request validation
 - MongoDB + Mongoose
-- Planned: worker queue, FFmpeg for authorized files, ZIP archives, secure temporary/object storage
+- Official metadata API integrations: YouTube Data API and Spotify Web API (credentials required)
+- Planned: worker queue, authorized media processing, ZIP archives, secure temporary/object storage
 
 ## Requirements
 
 - Node.js 20.9+ (use a currently supported LTS release)
 - npm and Git
-- MongoDB local instance or a MongoDB Atlas connection string for database features
+- MongoDB local instance or MongoDB Atlas connection string for database-backed features
+- YouTube Data API key and/or Spotify developer credentials to enable those metadata adapters
 
 ## Run locally
 
@@ -33,7 +35,7 @@ A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript,
    npm install
    ```
 
-3. Copy `.env.example` to `.env.local` and set `MONGODB_URI` to your local or Atlas database. Keep credentials private; never commit `.env.local`.
+3. Copy `.env.example` to `.env.local` and fill in the credentials you have. Keep credentials private; never commit `.env.local`.
 
    - macOS/Linux: `cp .env.example .env.local`
    - Windows PowerShell: `Copy-Item .env.example .env.local`
@@ -44,7 +46,17 @@ A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript,
    npm run dev
    ```
 
-5. Open http://localhost:3000. Check `/api/health` for database configuration/connectivity status.
+5. Open http://localhost:3000.
+   - `/api/health` reports database configuration/connectivity.
+   - The homepage Preview button calls `POST /api/playlist/metadata`.
+   - `POST /api/playlist/provider` detects supported provider URL formats without fetching them.
+
+## API credentials
+
+- **YouTube:** enable the YouTube Data API v3 for a Google Cloud project and set `YOUTUBE_DATA_API_KEY`.
+- **Spotify:** create an app in the Spotify developer dashboard and set `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET`.
+- Do not expose these credentials in client-side code or commit them to Git.
+- Metadata API access is subject to each provider's current access rules, quotas, and terms.
 
 ## Scripts
 
@@ -57,13 +69,17 @@ A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript,
 ## Roadmap
 
 1. [x] Next.js scaffold and responsive landing page
-2. [x] URL/bitrate validation endpoint (no media fetching)
-3. [x] MongoDB connection utility, job model, health endpoint
-4. [ ] Provider-specific metadata adapters using permitted APIs
-5. [ ] Anonymous owner tokens, job APIs, and access checks
-6. [ ] Worker queue, retries, cancellation, and secure temporary storage
-7. [ ] Individual downloads and ZIP generation for authorized audio sources
-8. [ ] Rate limits, quotas, cleanup, tests, CI, and deployment
+2. [x] URL/bitrate validation and provider detection
+3. [x] YouTube playlist metadata adapter foundation
+4. [x] Spotify playlist/album metadata adapter foundation
+5. [x] Metadata preview UI
+6. [x] MongoDB connection utility, job model, health endpoint
+7. [ ] Pagination controls and integration tests
+8. [ ] SoundCloud metadata adapter using permitted access
+9. [ ] Anonymous owner tokens, job APIs, and access checks
+10. [ ] Worker queue, retries, cancellation, and secure temporary storage
+11. [ ] Individual downloads and ZIP generation for authorized audio sources
+12. [ ] Rate limits, quotas, cleanup, tests, CI verification, and deployment
 
 ## Responsible-use boundaries
 
@@ -71,8 +87,9 @@ Metadata access does not grant permission to download a platform's audio. Integr
 
 ## Security notes
 
-- The preview endpoint validates URLs but does not fetch them. A hostname allowlist alone is not a complete SSRF defense.
-- Before server-side fetching, implement DNS/IP checks, redirect revalidation, outbound network controls, timeouts, and response-size limits.
-- The job model stores an owner token hash field, not a raw token. Job routes must generate random tokens, hash them, and verify ownership for every operation.
+- Provider API credentials are read server-side only.
+- The preview endpoint does not download audio.
+- Before any arbitrary server-side URL fetching, implement DNS/IP checks, redirect revalidation, outbound network controls, timeouts, and response-size limits.
+- The job model includes an owner-token hash field; job routes must generate random tokens, hash them, and verify ownership for every operation.
 - MongoDB TTL indexes delete documents, not files. A cleanup worker must remove files from local/object storage.
 - Do not deploy publicly until rate limits, job isolation, quotas, download authorization, cleanup, and tests are in place.
