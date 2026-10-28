@@ -2,33 +2,69 @@
 
 import { FormEvent, useState } from "react";
 
+type PreviewTrack = {
+  providerTrackId: string;
+  title: string;
+  artist: string;
+  durationSeconds?: number;
+  artworkUrl?: string;
+};
+
 const platforms = [
-  { name: "YouTube", detail: "Video & music playlists", mark: "Y", className: "youtube" },
+  { name: "YouTube", detail: "Playlist metadata", mark: "Y", className: "youtube" },
   { name: "Spotify", detail: "Playlist metadata", mark: "S", className: "spotify" },
-  { name: "SoundCloud", detail: "Supported public links", mark: "s", className: "soundcloud" },
-  { name: "Direct audio", detail: "Files you can access", mark: "♫", className: "direct" },
+  { name: "SoundCloud", detail: "Integration in progress", mark: "s", className: "soundcloud" },
+  { name: "Direct audio", detail: "Authorized files", mark: "♫", className: "direct" },
 ];
 
 const qualities = ["64", "96", "128", "192", "256", "320"];
+
+function formatDuration(seconds?: number) {
+  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds < 0) return "—";
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.floor(seconds % 60).toString().padStart(2, "0");
+  return `${minutes}:${remainingSeconds}`;
+}
 
 export default function HomePage() {
   const [url, setUrl] = useState("");
   const [quality, setQuality] = useState("320");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [playlistTitle, setPlaylistTitle] = useState("");
+  const [tracks, setTracks] = useState<PreviewTrack[]>([]);
+  const [provider, setProvider] = useState("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
+    setPlaylistTitle("");
+    setTracks([]);
+    setProvider("");
     setBusy(true);
     try {
-      const response = await fetch("/api/playlist/preview", {
+      const response = await fetch("/api/playlist/metadata", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, qualityKbps: Number(quality) }),
+        body: JSON.stringify({ url }),
       });
-      const data = (await response.json()) as { message?: string };
-      setMessage(data.message ?? "We couldn't process that link. Please try again.");
+      const data = (await response.json()) as {
+        message?: string;
+        title?: string;
+        provider?: string;
+        tracks?: PreviewTrack[];
+        totalTracks?: number;
+      };
+
+      if (!response.ok) {
+        setMessage(data.message ?? "Metadata is not available for this link yet.");
+        return;
+      }
+
+      setPlaylistTitle(data.title ?? "Playlist preview");
+      setProvider(data.provider ?? "");
+      setTracks(data.tracks ?? []);
+      setMessage(`Loaded ${(data.tracks ?? []).length} track(s) in this preview. Audio downloads are not enabled yet.`);
     } catch {
       setMessage("Could not reach the server. Check your connection and try again.");
     } finally {
@@ -49,18 +85,18 @@ export default function HomePage() {
       <section className="hero">
         <div className="eyebrow"><span className="eyebrow-spark">✳</span> YOUR MUSIC, YOUR WAY</div>
         <h1>Your playlists.<br /><span>One simple download.</span></h1>
-        <p className="hero-copy">Bring your playlist link. Choose your audio quality.<br className="desktop-break" /> Keep the tracks you’re allowed to download, all in one place.</p>
+        <p className="hero-copy">Bring your playlist link. Preview available metadata.<br className="desktop-break" /> Download features will only support audio you’re authorized to save.</p>
 
         <form className="import-card" onSubmit={handleSubmit}>
-          <label className="input-label" htmlFor="playlist-url">PASTE A PLAYLIST OR AUDIO URL</label>
+          <label className="input-label" htmlFor="playlist-url">PASTE A PLAYLIST URL</label>
           <div className="url-field">
             <span className="link-icon" aria-hidden="true"><LinkIcon /></span>
             <input id="playlist-url" type="url" placeholder="https://…" value={url} onChange={(event) => setUrl(event.target.value)} required aria-describedby="url-help" />
-            <button type="submit" className="import-button" disabled={busy}>{busy ? "Checking…" : "Continue"} <span aria-hidden="true">↗</span></button>
+            <button type="submit" className="import-button" disabled={busy}>{busy ? "Loading…" : "Preview"} <span aria-hidden="true">↗</span></button>
           </div>
-          <p className="input-help" id="url-help"><LockIcon /> We validate links before processing. Never submit private or sensitive URLs.</p>
+          <p className="input-help" id="url-help"><LockIcon /> Links are validated before metadata requests. Never submit private or sensitive URLs.</p>
           <div className="quality-row">
-            <div><span className="quality-heading">OUTPUT QUALITY</span><span className="quality-subtitle">MP3 bitrate</span></div>
+            <div><span className="quality-heading">FUTURE OUTPUT QUALITY</span><span className="quality-subtitle">MP3 bitrate selection</span></div>
             <div className="quality-options" role="group" aria-label="MP3 bitrate">
               {qualities.map((item) => <button type="button" key={item} className={quality === item ? "quality-chip selected" : "quality-chip"} aria-pressed={quality === item} onClick={() => setQuality(item)}>{item}</button>)}
               <span className="kbps-label">kbps</span>
@@ -68,6 +104,21 @@ export default function HomePage() {
           </div>
           {message && <div className="notice" role="status">{message}</div>}
         </form>
+
+        {playlistTitle && <section className="playlist-preview" aria-label="Playlist preview">
+          <div className="preview-header">
+            <div><span className="preview-provider">{provider.toUpperCase()} · PREVIEW</span><h2>{playlistTitle}</h2></div>
+            <span className="track-count">{tracks.length} tracks</span>
+          </div>
+          {tracks.length > 0 ? <div className="track-list">
+            {tracks.map((track, index) => <article className="track-row" key={track.providerTrackId || index}>
+              {track.artworkUrl ? <img className="track-artwork" src={track.artworkUrl} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span className="track-placeholder" aria-hidden="true">♫</span>}
+              <span className="track-details"><strong>{track.title}</strong><small>{track.artist || "Artist unavailable"}</small></span>
+              <span className="track-duration">{formatDuration(track.durationSeconds)}</span>
+            </article>)}
+          </div> : <p className="preview-empty">No previewable tracks were returned for this link.</p>}
+          <p className="preview-disclaimer">Metadata preview only. This app does not download audio yet.</p>
+        </section>}
 
         <div className="platform-heading"><span>BUILT FOR YOUR MUSIC WORKFLOW</span><span className="platform-line" /></div>
         <div className="platform-grid">
@@ -77,16 +128,16 @@ export default function HomePage() {
             <span className="platform-arrow" aria-hidden="true">↗</span>
           </div>)}
         </div>
-        <p className="platform-note">Platform support depends on each service’s API, terms, and download permissions.</p>
+        <p className="platform-note">Metadata access does not grant permission to download a service’s audio.</p>
       </section>
 
       <section className="steps-section">
         <div className="section-kicker">A CLEANER WAY TO COLLECT AUDIO</div>
         <h2>From link to library.</h2>
         <div className="steps-grid">
-          <article className="step-card"><span className="step-number">01</span><span className="step-icon"><LinkIcon /></span><h3>Drop your link</h3><p>Paste a supported playlist or an audio source you’re authorized to use.</p></article>
-          <article className="step-card"><span className="step-number">02</span><span className="step-icon"><SlidersIcon /></span><h3>Set your quality</h3><p>Pick a bitrate that fits your needs and the source file’s capabilities.</p></article>
-          <article className="step-card"><span className="step-number">03</span><span className="step-icon"><DownloadIcon /></span><h3>Save your tracks</h3><p>Download supported files individually or collect them in a ZIP archive.</p></article>
+          <article className="step-card"><span className="step-number">01</span><span className="step-icon"><LinkIcon /></span><h3>Drop your link</h3><p>Paste a supported playlist link and let the server check its metadata access.</p></article>
+          <article className="step-card"><span className="step-number">02</span><span className="step-icon"><SlidersIcon /></span><h3>Set your quality</h3><p>Choose a future output bitrate; available quality depends on the authorized source.</p></article>
+          <article className="step-card"><span className="step-number">03</span><span className="step-icon"><DownloadIcon /></span><h3>Save your tracks</h3><p>Individual and ZIP downloads are planned for supported, authorized audio sources.</p></article>
         </div>
       </section>
 
