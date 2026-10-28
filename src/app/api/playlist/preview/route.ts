@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { parseSupportedProviderUrl, providerDisplayName, SUPPORTED_BITRATES } from "@/lib/providers";
 
 export const runtime = "nodejs";
 
@@ -11,16 +12,6 @@ const requestSchema = z.object({
   ]),
 });
 
-const allowedHosts = [
-  "youtube.com", "www.youtube.com", "music.youtube.com", "youtu.be",
-  "open.spotify.com", "soundcloud.com", "www.soundcloud.com",
-];
-
-function isAllowedHost(hostname: string) {
-  const host = hostname.toLowerCase().replace(/\.$/, "");
-  return allowedHosts.some((allowed) => host === allowed || host.endsWith("." + allowed));
-}
-
 export async function POST(request: Request) {
   let body: unknown;
 
@@ -31,35 +22,29 @@ export async function POST(request: Request) {
   }
 
   const parsed = requestSchema.safeParse(body);
-  if (!parsed.success) {
+  if (!parsed.success || !SUPPORTED_BITRATES.includes(parsed.data.qualityKbps)) {
     return NextResponse.json(
-      { message: "Enter a valid playlist URL and choose a supported bitrate." },
+      { message: "Enter a valid supported playlist URL and choose a supported bitrate." },
       { status: 400 },
     );
   }
 
-  let parsedUrl: URL;
-  try {
-    parsedUrl = new URL(parsed.data.url);
-  } catch {
-    return NextResponse.json({ message: "That URL is not valid." }, { status: 400 });
-  }
-
-  if (parsedUrl.protocol !== "https:" || !isAllowedHost(parsedUrl.hostname)) {
+  const inspection = parseSupportedProviderUrl(parsed.data.url);
+  if (!inspection) {
     return NextResponse.json(
-      { message: "For now, use an HTTPS link from YouTube, YouTube Music, Spotify, or SoundCloud." },
+      { message: "Unsupported URL. Use an HTTPS link from YouTube, YouTube Music, Spotify, or SoundCloud." },
       { status: 400 },
     );
   }
 
-  // Provider adapters and authorized audio sources are added in a later milestone.
-  // Do not fetch or download third-party media until an approved provider flow exists.
-  return NextResponse.json(
-    {
-      status: "provider-not-configured",
-      qualityKbps: parsed.data.qualityKbps,
-      message: "Link format looks good. Playlist provider integration is the next milestone; downloads are not enabled yet.",
-    },
-    { status: 501 },
-  );
+  return NextResponse.json({
+    status: "provider-detected",
+    provider: inspection.provider,
+    providerName: providerDisplayName(inspection.provider),
+    linkKind: inspection.kind,
+    qualityKbps: parsed.data.qualityKbps,
+    metadataIntegrationConfigured: inspection.metadataIntegrationConfigured,
+    audioDownloadEnabled: inspection.audioDownloadEnabled,
+    message: `Recognized ${providerDisplayName(inspection.provider)}. Provider metadata access is the next step; downloads are not enabled yet.`,
+  });
 }
