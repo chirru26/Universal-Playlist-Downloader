@@ -79,8 +79,8 @@ A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript,
 7. [ ] Pagination controls and integration tests
 8. [ ] SoundCloud metadata adapter using permitted access
 9. [x] Anonymous owner tokens, job APIs, access checks, and cancellation
-10. [x] Worker queue claim/lease/retry API foundation, cancellation, and authorized upload intake; [ ] worker runtime, conversion, output downloads, and secure storage cleanup
-11. [ ] Individual downloads and ZIP generation for authorized audio sources
+10. [x] Worker queue claim/lease/retry API, cancellation, authorized upload intake, FFmpeg worker runtime, conversion progress, and owner-authenticated individual MP3 downloads
+11. [ ] ZIP generation for authorized audio sources and secure storage cleanup
 12. [ ] Rate limits, quotas, cleanup, tests, CI verification, and deployment
 
 ## Responsible-use boundaries
