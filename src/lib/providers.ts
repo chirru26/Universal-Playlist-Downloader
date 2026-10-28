@@ -71,11 +71,18 @@ export function parseSupportedProviderUrl(input: string): ProviderInspection | n
   // Only exact known hostnames are accepted. This function does not fetch URLs.
   url.hash = "";
 
+  const metadataIntegrationConfigured =
+    provider === "youtube"
+      ? Boolean(process.env.YOUTUBE_DATA_API_KEY)
+      : provider === "spotify"
+        ? Boolean(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET)
+        : false;
+
   return {
     provider,
     canonicalUrl: url.toString(),
     kind,
-    metadataIntegrationConfigured: false,
+    metadataIntegrationConfigured,
     audioDownloadEnabled: false,
   };
 }
