@@ -1,21 +1,22 @@
 # TuneFetch — Universal Playlist Downloader
 
-A privacy-conscious, anonymous playlist and authorized-audio workflow built with Next.js, TypeScript, and Tailwind CSS.
+A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript, Tailwind CSS, and MongoDB.
 
-> **Current status:** Milestone 1 scaffold and responsive UI. Playlist provider adapters, database persistence, background jobs, audio conversion, and downloads are not implemented yet. The preview endpoint validates input and intentionally does not fetch or download media.
+> **Current status:** Milestone 2 adds the Mongoose connection layer, a download-job model, and a health endpoint. Playlist provider adapters, real metadata retrieval, background processing, audio conversion, and downloads are not implemented yet.
 
 ## Stack
 
-- Next.js App Router + React + TypeScript
+- Next.js App Router, React, TypeScript
 - Tailwind CSS v4
 - Zod request validation
-- MongoDB/Mongoose and a background worker are planned for later milestones
+- MongoDB + Mongoose
+- Planned: worker queue, FFmpeg for authorized files, ZIP archives, secure temporary/object storage
 
 ## Requirements
 
-- Node.js 20.9 or newer (use a current supported LTS release)
-- npm
-- Git
+- Node.js 20.9+ (use a currently supported LTS release)
+- npm and Git
+- MongoDB local instance or a MongoDB Atlas connection string for database features
 
 ## Run locally
 
@@ -32,47 +33,46 @@ A privacy-conscious, anonymous playlist and authorized-audio workflow built with
    npm install
    ```
 
-3. Create a local environment file:
+3. Copy `.env.example` to `.env.local` and set `MONGODB_URI` to your local or Atlas database. Keep credentials private; never commit `.env.local`.
 
    - macOS/Linux: `cp .env.example .env.local`
    - Windows PowerShell: `Copy-Item .env.example .env.local`
 
-   MongoDB is not required for this initial UI milestone. It will be needed when persistence is introduced.
-
-4. Start the development server:
+4. Start the app:
 
    ```bash
    npm run dev
    ```
 
-5. Open http://localhost:3000.
+5. Open http://localhost:3000. Check `/api/health` for database configuration/connectivity status.
 
-## Available scripts
+## Scripts
 
-- `npm run dev` — start development server
+- `npm run dev` — development server
 - `npm run build` — production build
-- `npm run start` — run production server after building
-- `npm run lint` — run ESLint
-- `npm run typecheck` — run TypeScript checks
+- `npm run start` — serve the production build
+- `npm run lint` — ESLint
+- `npm run typecheck` — TypeScript check
 
 ## Roadmap
 
-1. [x] Initialize project structure and responsive landing page
-2. [x] Add URL and bitrate validation endpoint (no media fetching)
-3. [ ] Add provider-specific metadata adapters using permitted APIs
-4. [ ] Add MongoDB models, anonymous job ownership, and retention rules
-5. [ ] Add queue/worker infrastructure and secure temporary storage
-6. [ ] Support conversion/downloads only for audio sources the user owns or is authorized to download
-7. [ ] Add ZIP generation, progress tracking, rate limits, and cleanup
-8. [ ] Add automated tests, CI, deployment configuration, and operational documentation
+1. [x] Next.js scaffold and responsive landing page
+2. [x] URL/bitrate validation endpoint (no media fetching)
+3. [x] MongoDB connection utility, job model, health endpoint
+4. [ ] Provider-specific metadata adapters using permitted APIs
+5. [ ] Anonymous owner tokens, job APIs, and access checks
+6. [ ] Worker queue, retries, cancellation, and secure temporary storage
+7. [ ] Individual downloads and ZIP generation for authorized audio sources
+8. [ ] Rate limits, quotas, cleanup, tests, CI, and deployment
 
 ## Responsible-use boundaries
 
-Platform APIs, terms, copyright, and download permissions vary. Metadata support does not imply permission to download a platform's audio. The app must not bypass DRM, paywalls, authentication, or access controls. Implementations should only process media from authorized sources and should respect each provider's terms and applicable law.
+Metadata access does not grant permission to download a platform's audio. Integrations must respect provider APIs, terms, copyright, and access restrictions. The application must not bypass DRM, authentication, paywalls, or other access controls. Only process media the user owns or is authorized to download.
 
 ## Security notes
 
-- Never commit `.env.local` or credentials.
-- The preview endpoint validates the request and only accepts HTTPS URLs on a small host allowlist.
-- This allowlist is input validation, not a complete SSRF defense; any future server-side fetching must include DNS/IP checks, redirect revalidation, timeouts, response-size limits, and outbound network controls.
-- Before public deployment, add rate limiting, anonymous job isolation, file quotas, download authorization, and physical temporary-file cleanup. MongoDB TTL indexes alone do not delete files from disk or object storage.
+- The preview endpoint validates URLs but does not fetch them. A hostname allowlist alone is not a complete SSRF defense.
+- Before server-side fetching, implement DNS/IP checks, redirect revalidation, outbound network controls, timeouts, and response-size limits.
+- The job model stores an owner token hash field, not a raw token. Job routes must generate random tokens, hash them, and verify ownership for every operation.
+- MongoDB TTL indexes delete documents, not files. A cleanup worker must remove files from local/object storage.
+- Do not deploy publicly until rate limits, job isolation, quotas, download authorization, cleanup, and tests are in place.
