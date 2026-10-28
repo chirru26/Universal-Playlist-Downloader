@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
-type JobSummary = { id: string; sourceUrl: string; provider: string; qualityKbps: number; status: string; progressPercent: number; trackCount: number; createdAt?: string };
+type JobSummary = { id: string; sourceUrl: string; label?: string; downloadUrl?: string; provider: string; qualityKbps: number; status: string; progressPercent: number; trackCount: number; createdAt?: string };
 
 type PreviewTrack = {
   providerTrackId: string;
@@ -56,6 +56,12 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => { void refreshJobs(); }, [refreshJobs]);
+
+  useEffect(() => {
+    if (!jobs.some((job) => ["queued", "processing"].includes(job.status))) return;
+    const timer = window.setInterval(() => { void refreshJobs(); }, 2500);
+    return () => window.clearInterval(timer);
+  }, [jobs, refreshJobs]);
 
   async function uploadAuthorizedAudio(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -234,8 +240,8 @@ export default function HomePage() {
 
         <section className="jobs-panel" aria-label="Your recent jobs">
           <div className="preview-header"><div><span className="preview-provider">PRIVATE TO THIS BROWSER</span><h2>Recent jobs</h2></div><button type="button" className="text-button" onClick={() => void refreshJobs()}>Refresh</button></div>
-          {jobs.length ? <div className="job-list">{jobs.map((job) => <article className="job-row" key={job.id}><span className="job-status-dot" aria-hidden="true" /><span className="track-details"><strong>{job.provider} · {job.qualityKbps} kbps</strong><small>{job.sourceUrl}</small></span><span className="job-status">{job.status}</span>{["queued", "processing"].includes(job.status) && <button type="button" className="text-button" onClick={() => void cancelJob(job.id)} disabled={cancellingJobId !== null}>{cancellingJobId === job.id ? "Cancelling…" : "Cancel"}</button>}</article>)}</div> : <p className="preview-empty">Saved jobs will appear here after you save one. Database setup is required.</p>}
-          <p className="preview-disclaimer">Jobs are saved for up to 7 days. Processing is not active yet; these are saved requests, not completed downloads.</p>
+          {jobs.length ? <div className="job-list">{jobs.map((job) => <article className="job-row" key={job.id}><span className="job-status-dot" aria-hidden="true" /><span className="track-details"><strong>{job.provider === "direct" ? "Uploaded audio" : job.provider} · {job.qualityKbps} kbps</strong><small>{job.label || job.sourceUrl}</small>{["queued", "processing"].includes(job.status) && <span className="job-progress" role="progressbar" aria-label="Conversion progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={job.progressPercent}><span style={{ width: `${Math.max(0, Math.min(100, job.progressPercent))}%` }} /></span>}</span><span className="job-status">{job.status}{job.status === "processing" ? ` · ${job.progressPercent}%` : ""}</span>{job.downloadUrl && <a className="text-button" href={job.downloadUrl}>Download MP3</a>}{["queued", "processing"].includes(job.status) && <button type="button" className="text-button" onClick={() => void cancelJob(job.id)} disabled={cancellingJobId !== null}>{cancellingJobId === job.id ? "Cancelling…" : "Cancel"}</button>}</article>)}</div> : <p className="preview-empty">Saved jobs will appear here after you save one. Database setup is required.</p>}
+          <p className="preview-disclaimer">Jobs are saved for up to 7 days. Authorized uploads show live conversion progress; completed MP3s can be downloaded from this browser.</p>
         </section>
       </section>
 
