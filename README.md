@@ -2,7 +2,7 @@
 
 A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript, Tailwind CSS, and MongoDB.
 
-> **Current status:** The app has a responsive UI, URL/provider detection, a metadata API foundation for YouTube playlists and Spotify playlists/albums, a MongoDB connection layer, a download-job model, a health endpoint, and CI configuration. Provider metadata calls require your own API credentials. SoundCloud metadata, background audio conversion and actual downloads are not implemented yet. A private authorized-audio upload endpoint now accepts validated audio files up to 25 MB when a private shared directory is configured; these uploads can be claimed by the worker queue but are not processed until a worker runtime is deployed. A protected worker queue API now supports job claiming, lease renewal, and bounded retries; it does not process media itself. Anonymous job creation, history, and cancellation are persisted when MongoDB is configured; saved jobs remain queued until a media-authorized worker is added.
+> **Current status:** The app has a responsive UI, URL/provider detection, a metadata API foundation for YouTube playlists and Spotify playlists/albums, a MongoDB connection layer, a download-job model, a health endpoint, and CI configuration. Provider metadata calls require your own API credentials. SoundCloud metadata and provider-platform audio downloading are not implemented. A separate Node.js worker now claims only authorized user-upload jobs, converts accepted audio to MP3 with FFmpeg, reports progress, and exposes completed files through an owner-authenticated download endpoint. This requires a self-hosted app and worker sharing a private directory, MongoDB, FFmpeg, and FFprobe. Anonymous job history and cancellation are persisted when MongoDB is configured.
 
 ## Stack
 
@@ -11,7 +11,8 @@ A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript,
 - Zod request validation
 - MongoDB + Mongoose
 - Official metadata API integrations: YouTube Data API and Spotify Web API (credentials required)
-- Worker queue foundation; planned: authorized media processing, ZIP archives, secure storage cleanup
+- Separate Node.js worker runtime using FFmpeg/FFprobe for user-authorized uploads
+- Owner-checked individual MP3 downloads; ZIP archives and automated storage cleanup remain planned
 
 ## Requirements
 
@@ -35,7 +36,7 @@ A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript,
    npm install
    ```
 
-3. Copy `.env.example` to `.env.local` and fill in the credentials you have. Keep credentials private; never commit `.env.local`. For authorized file uploads, configure `AUTHORIZED_UPLOAD_DIR` as a private directory shared by the Next.js server and the worker. This local-volume approach is for self-hosted deployments, not serverless hosting.
+3. Copy `.env.example` to `.env.local` and fill in the credentials you have. Keep credentials private; never commit `.env.local`. For authorized file uploads, configure `AUTHORIZED_UPLOAD_DIR` as a private directory shared by the Next.js server and worker. This local-volume approach is for self-hosted deployments, not serverless hosting. Install FFmpeg and FFprobe on the worker host. Set `WORKER_APP_URL` to the deployed app URL, and configure the same `WORKER_API_SECRET` and `AUTHORIZED_UPLOAD_DIR` on both app and worker hosts.
 
    - macOS/Linux: `cp .env.example .env.local`
    - Windows PowerShell: `Copy-Item .env.example .env.local`
@@ -50,7 +51,7 @@ A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript,
    - `/api/health` reports database configuration/connectivity.
    - The homepage Preview button calls `POST /api/playlist/metadata`.
    - `POST /api/playlist/provider` detects supported provider URL formats without fetching them.
-   - `POST /api/jobs` saves a playlist request to anonymous job history; `GET /api/jobs` lists jobs for the browser’s owner cookie; `DELETE /api/jobs/:jobId` cancels a queued or processing job owned by that browser. `POST /api/uploads` accepts supported user-provided audio files, checks file signatures, and queues authorized-upload jobs. These endpoints require MongoDB; uploads also require a private shared directory.
+   - `POST /api/jobs` saves a playlist request to anonymous job history; `GET /api/jobs` lists jobs for the browser’s owner cookie; `DELETE /api/jobs/:jobId` cancels a queued or processing job owned by that browser. `POST /api/uploads` accepts supported user-provided audio files, checks basic file signatures, and queues authorized-upload jobs. The worker converts only those uploads; `GET /api/jobs/:jobId/download` streams completed MP3s only to the owning browser.
 
 ## API credentials
 
@@ -90,7 +91,7 @@ Metadata access does not grant permission to download a platform's audio. Integr
 
 - Provider API credentials are read server-side only.
 - The preview endpoint does not download audio.
-- The internal worker endpoint requires a server-only `WORKER_API_SECRET` bearer token and provides claim, heartbeat, and failure/retry actions. It only claims `authorized-upload` jobs, never provider playlist URLs. The upload endpoint checks extension and basic file signatures, but it is not a malware scanner. Uploaded files are private and must be placed on a shared directory available only to the app and trusted worker. This is intake and queue infrastructure, not a completed converter or downloader.
+- The internal worker endpoint requires a server-only `WORKER_API_SECRET` bearer token and provides claim, heartbeat/progress, completion, and failure/retry actions. It only claims `authorized-upload` jobs, never provider playlist URLs. The worker uses `spawn` with explicit FFmpeg arguments (no shell), validates private storage keys, and serves outputs only after checking the anonymous owner token. The upload endpoint checks extension and basic file signatures, but it is not a malware scanner. Uploaded and converted files are private and must be stored in a directory accessible only to the app and trusted worker. Configure backups, quotas, rate limiting, and automated file cleanup before a public production launch.
 - Before any arbitrary server-side URL fetching, implement DNS/IP checks, redirect revalidation, outbound network controls, timeouts, and response-size limits.
 - The job model includes an owner-token hash field; job routes must generate random tokens, hash them, and verify ownership for every operation.
 - MongoDB TTL indexes delete documents, not files. A cleanup worker must remove files from local/object storage.
