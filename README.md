@@ -2,7 +2,7 @@
 
 A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript, Tailwind CSS, and MongoDB.
 
-> **Current status:** The app has a responsive UI, URL/provider detection, a metadata API foundation for YouTube playlists and Spotify playlists/albums, a MongoDB connection layer, a download-job model, a health endpoint, and CI configuration. Provider metadata calls require your own API credentials. SoundCloud metadata, background processing, audio conversion, and actual downloads are not implemented yet. Anonymous job creation and history are now persisted when MongoDB is configured; saved jobs remain queued until a worker is added.
+> **Current status:** The app has a responsive UI, URL/provider detection, a metadata API foundation for YouTube playlists and Spotify playlists/albums, a MongoDB connection layer, a download-job model, a health endpoint, and CI configuration. Provider metadata calls require your own API credentials. SoundCloud metadata, actual background processing, audio conversion, and actual downloads are not implemented yet. A protected worker queue API now supports job claiming, lease renewal, and bounded retries; it does not process media itself. Anonymous job creation and history are now persisted when MongoDB is configured; saved jobs remain queued until a worker is added.
 
 ## Stack
 
@@ -77,7 +77,7 @@ A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript,
 7. [ ] Pagination controls and integration tests
 8. [ ] SoundCloud metadata adapter using permitted access
 9. [x] Anonymous owner tokens, job APIs, and access checks
-10. [ ] Worker queue, retries, cancellation, and secure temporary storage
+10. [x] Worker queue claim/lease/retry API foundation; [ ] worker runtime, cancellation, and secure temporary storage
 11. [ ] Individual downloads and ZIP generation for authorized audio sources
 12. [ ] Rate limits, quotas, cleanup, tests, CI verification, and deployment
 
@@ -88,7 +88,7 @@ Metadata access does not grant permission to download a platform's audio. Integr
 ## Security notes
 
 - Provider API credentials are read server-side only.
-- The preview endpoint does not download audio.
+- The preview endpoint does not download audio.\n- The internal worker endpoint requires a server-only `WORKER_API_SECRET` bearer token and provides claim, heartbeat, and failure/retry actions. It is queue infrastructure only, not an audio downloader.
 - Before any arbitrary server-side URL fetching, implement DNS/IP checks, redirect revalidation, outbound network controls, timeouts, and response-size limits.
 - The job model includes an owner-token hash field; job routes must generate random tokens, hash them, and verify ownership for every operation.
 - MongoDB TTL indexes delete documents, not files. A cleanup worker must remove files from local/object storage.
