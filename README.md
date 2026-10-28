@@ -2,7 +2,7 @@
 
 A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript, Tailwind CSS, and MongoDB.
 
-> **Current status:** The app has a responsive UI, URL/provider detection, a metadata API foundation for YouTube playlists and Spotify playlists/albums, a MongoDB connection layer, a download-job model, a health endpoint, and CI configuration. Provider metadata calls require your own API credentials. SoundCloud metadata, actual background processing, audio conversion, and actual downloads are not implemented yet. A protected worker queue API now supports job claiming, lease renewal, and bounded retries; it does not process media itself. Anonymous job creation and history are now persisted when MongoDB is configured; saved jobs remain queued until a worker is added.
+> **Current status:** The app has a responsive UI, URL/provider detection, a metadata API foundation for YouTube playlists and Spotify playlists/albums, a MongoDB connection layer, a download-job model, a health endpoint, and CI configuration. Provider metadata calls require your own API credentials. SoundCloud metadata, actual background processing, audio conversion, and actual downloads are not implemented yet. A protected worker queue API now supports job claiming, lease renewal, and bounded retries; it does not process media itself. Anonymous job creation, history, and cancellation are persisted when MongoDB is configured; saved jobs remain queued until a media-authorized worker is added.
 
 ## Stack
 
@@ -50,7 +50,7 @@ A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript,
    - `/api/health` reports database configuration/connectivity.
    - The homepage Preview button calls `POST /api/playlist/metadata`.
    - `POST /api/playlist/provider` detects supported provider URL formats without fetching them.
-   - `POST /api/jobs` saves a playlist request to anonymous job history; `GET /api/jobs` lists jobs for the browser’s owner cookie. Both require MongoDB for persistence.
+   - `POST /api/jobs` saves a playlist request to anonymous job history; `GET /api/jobs` lists jobs for the browser’s owner cookie; `DELETE /api/jobs/:jobId` cancels a queued or processing job owned by that browser. These endpoints require MongoDB for persistence.
 
 ## API credentials
 
@@ -77,8 +77,8 @@ A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript,
 6. [x] MongoDB connection utility, job model, health endpoint
 7. [ ] Pagination controls and integration tests
 8. [ ] SoundCloud metadata adapter using permitted access
-9. [x] Anonymous owner tokens, job APIs, and access checks
-10. [x] Worker queue claim/lease/retry API foundation; [ ] worker runtime, cancellation, and secure temporary storage
+9. [x] Anonymous owner tokens, job APIs, access checks, and cancellation
+10. [x] Worker queue claim/lease/retry API foundation and job cancellation; [ ] worker runtime and secure temporary storage
 11. [ ] Individual downloads and ZIP generation for authorized audio sources
 12. [ ] Rate limits, quotas, cleanup, tests, CI verification, and deployment
 
