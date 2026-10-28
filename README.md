@@ -2,7 +2,7 @@
 
 A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript, Tailwind CSS, and MongoDB.
 
-> **Current status:** The app has a responsive UI, URL/provider detection, a metadata API foundation for YouTube playlists and Spotify playlists/albums, a MongoDB connection layer, a download-job model, a health endpoint, and CI configuration. Provider metadata calls require your own API credentials. SoundCloud metadata, actual background processing, audio conversion, and actual downloads are not implemented yet. A protected worker queue API now supports job claiming, lease renewal, and bounded retries; it does not process media itself. Anonymous job creation, history, and cancellation are persisted when MongoDB is configured; saved jobs remain queued until a media-authorized worker is added.
+> **Current status:** The app has a responsive UI, URL/provider detection, a metadata API foundation for YouTube playlists and Spotify playlists/albums, a MongoDB connection layer, a download-job model, a health endpoint, and CI configuration. Provider metadata calls require your own API credentials. SoundCloud metadata, background audio conversion and actual downloads are not implemented yet. A private authorized-audio upload endpoint now accepts validated audio files up to 25 MB when a private shared directory is configured; these uploads can be claimed by the worker queue but are not processed until a worker runtime is deployed. A protected worker queue API now supports job claiming, lease renewal, and bounded retries; it does not process media itself. Anonymous job creation, history, and cancellation are persisted when MongoDB is configured; saved jobs remain queued until a media-authorized worker is added.
 
 ## Stack
 
@@ -11,7 +11,7 @@ A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript,
 - Zod request validation
 - MongoDB + Mongoose
 - Official metadata API integrations: YouTube Data API and Spotify Web API (credentials required)
-- Planned: worker queue, authorized media processing, ZIP archives, secure temporary/object storage
+- Worker queue foundation; planned: authorized media processing, ZIP archives, secure storage cleanup
 
 ## Requirements
 
@@ -35,7 +35,7 @@ A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript,
    npm install
    ```
 
-3. Copy `.env.example` to `.env.local` and fill in the credentials you have. Keep credentials private; never commit `.env.local`.
+3. Copy `.env.example` to `.env.local` and fill in the credentials you have. Keep credentials private; never commit `.env.local`. For authorized file uploads, configure `AUTHORIZED_UPLOAD_DIR` as a private directory shared by the Next.js server and the worker. This local-volume approach is for self-hosted deployments, not serverless hosting.
 
    - macOS/Linux: `cp .env.example .env.local`
    - Windows PowerShell: `Copy-Item .env.example .env.local`
@@ -50,7 +50,7 @@ A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript,
    - `/api/health` reports database configuration/connectivity.
    - The homepage Preview button calls `POST /api/playlist/metadata`.
    - `POST /api/playlist/provider` detects supported provider URL formats without fetching them.
-   - `POST /api/jobs` saves a playlist request to anonymous job history; `GET /api/jobs` lists jobs for the browser’s owner cookie; `DELETE /api/jobs/:jobId` cancels a queued or processing job owned by that browser. These endpoints require MongoDB for persistence.
+   - `POST /api/jobs` saves a playlist request to anonymous job history; `GET /api/jobs` lists jobs for the browser’s owner cookie; `DELETE /api/jobs/:jobId` cancels a queued or processing job owned by that browser. `POST /api/uploads` accepts supported user-provided audio files, checks file signatures, and queues authorized-upload jobs. These endpoints require MongoDB; uploads also require a private shared directory.
 
 ## API credentials
 
@@ -78,7 +78,7 @@ A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript,
 7. [ ] Pagination controls and integration tests
 8. [ ] SoundCloud metadata adapter using permitted access
 9. [x] Anonymous owner tokens, job APIs, access checks, and cancellation
-10. [x] Worker queue claim/lease/retry API foundation and job cancellation; [ ] worker runtime and secure temporary storage
+10. [x] Worker queue claim/lease/retry API foundation, cancellation, and authorized upload intake; [ ] worker runtime, conversion, output downloads, and secure storage cleanup
 11. [ ] Individual downloads and ZIP generation for authorized audio sources
 12. [ ] Rate limits, quotas, cleanup, tests, CI verification, and deployment
 
@@ -90,7 +90,7 @@ Metadata access does not grant permission to download a platform's audio. Integr
 
 - Provider API credentials are read server-side only.
 - The preview endpoint does not download audio.
-- The internal worker endpoint requires a server-only `WORKER_API_SECRET` bearer token and provides claim, heartbeat, and failure/retry actions. It is queue infrastructure only, not an audio downloader.
+- The internal worker endpoint requires a server-only `WORKER_API_SECRET` bearer token and provides claim, heartbeat, and failure/retry actions. It only claims `authorized-upload` jobs, never provider playlist URLs. The upload endpoint checks extension and basic file signatures, but it is not a malware scanner. Uploaded files are private and must be placed on a shared directory available only to the app and trusted worker. This is intake and queue infrastructure, not a completed converter or downloader.
 - Before any arbitrary server-side URL fetching, implement DNS/IP checks, redirect revalidation, outbound network controls, timeouts, and response-size limits.
 - The job model includes an owner-token hash field; job routes must generate random tokens, hash them, and verify ownership for every operation.
 - MongoDB TTL indexes delete documents, not files. A cleanup worker must remove files from local/object storage.
