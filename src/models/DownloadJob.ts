@@ -22,6 +22,10 @@ const downloadJobSchema = new Schema(
   {
     ownerTokenHash: { type: String, required: true, select: false, index: true },
     sourceUrl: { type: String, required: true, maxlength: 2048 },
+    sourceType: { type: String, enum: ["playlist-url", "authorized-upload"], default: "playlist-url", required: true, index: true },
+    uploadKey: { type: String, maxlength: 100, select: false },
+    originalFilename: { type: String, maxlength: 255 },
+    outputKey: { type: String, maxlength: 100, select: false },
     provider: {
       type: String,
       enum: ["youtube", "spotify", "soundcloud", "direct", "unknown"],
