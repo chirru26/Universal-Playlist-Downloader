@@ -17,7 +17,7 @@ MongoDB / Mongoose
 
 ## Download job model
 
-The model records the anonymous owner's **token hash**, never the raw ownership token. Future job APIs must generate a cryptographically random token, store only its hash, and verify it on every read, cancellation, and download request. Do not use a public job ID alone as authorization.
+The model records the anonymous owner's **token hash**, never the raw ownership token. Job APIs generate a cryptographically random token, store only its hash, and verify ownership for history. Future cancellation and download requests must perform the same owner check. Do not use a public job ID alone as authorization.
 
 Jobs support queued/processing/completed/failed/cancelled states, per-track progress, a selected bitrate, and an optional expiry date. Assign expiry only after a job reaches a terminal state. MongoDB TTL deletion removes the document, not generated files; a worker must remove local/object-storage files separately.
 
@@ -29,7 +29,7 @@ Provider metadata integrations must use official or otherwise permitted interfac
 
 - Add rate limiting and request-size limits.
 - Add anonymous owner-token creation, hashing, secure cookie handling, and job-level authorization.
-- Add a worker queue, retry policy, cancellation, concurrency limits, and resource quotas.
+- The internal worker route supports lease-based claim, heartbeat, and bounded retry. Add a separately deployed trusted worker runtime, cancellation, concurrency limits, and resource quotas.
 - Add SSRF defenses before any server-side URL fetch: DNS/IP validation, redirect revalidation, outbound network controls, timeouts, and response-size caps.
 - Add a storage cleanup worker that removes physical files and archives.
 - Add automated tests and CI, then verify a production build before deployment.
