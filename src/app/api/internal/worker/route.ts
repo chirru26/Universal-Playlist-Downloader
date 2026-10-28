@@ -52,6 +52,7 @@ export async function POST(request: Request) {
       const leaseToken = randomBytes(32).toString("hex");
       const job = await DownloadJob.findOneAndUpdate(
         {
+          sourceType: "authorized-upload",
           attempts: { $lt: MAX_ATTEMPTS },
           $or: [
             { status: "queued" },
@@ -78,7 +79,9 @@ export async function POST(request: Request) {
       return NextResponse.json({
         job: {
           id: String(job._id),
-          sourceUrl: job.sourceUrl,
+          sourceType: job.sourceType,
+          uploadKey: job.uploadKey,
+          originalFilename: job.originalFilename,
           provider: job.provider,
           qualityKbps: job.qualityKbps,
           attempt: job.attempts,
