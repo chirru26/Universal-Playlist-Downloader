@@ -90,7 +90,7 @@ async function convert(job, leaseToken) {
   async function sendProgress(percent) {
     const safePercent = Math.max(0, Math.min(99, Math.floor(percent)));
     const now = Date.now();
-    if (safePercent === lastSentProgress && now - lastSentAt < 5000) return;
+    if (now - lastSentAt < 1500) return;
     lastSentProgress = safePercent;
     lastSentAt = now;
     try {
@@ -142,7 +142,8 @@ async function convert(job, leaseToken) {
     try {
       await requestWorker({ action: "complete", jobId: job.id, leaseToken, outputKey });
     } catch (error) {
-      await rm(outputPath, { force: true });
+      // Keep the output if the response was lost: the server may already have committed completion.
+      // A later storage cleanup task can remove orphaned outputs safely.
       throw Object.assign(new Error(`Could not publish completed output: ${error.message}`), { code: "COMPLETION_FAILED" });
     }
 
