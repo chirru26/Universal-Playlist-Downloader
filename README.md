@@ -49,7 +49,8 @@ A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript,
 5. Open http://localhost:3000.
    - `/api/health` reports database configuration/connectivity.
    - The homepage Preview button calls `POST /api/playlist/metadata`.
-   - `POST /api/playlist/provider` detects supported provider URL formats without fetching them.\n   - `POST /api/jobs` saves a playlist request to anonymous job history; `GET /api/jobs` lists jobs for the browser’s owner cookie. Both require MongoDB for persistence.
+   - `POST /api/playlist/provider` detects supported provider URL formats without fetching them.
+   - `POST /api/jobs` saves a playlist request to anonymous job history; `GET /api/jobs` lists jobs for the browser’s owner cookie. Both require MongoDB for persistence.
 
 ## API credentials
 
@@ -88,7 +89,8 @@ Metadata access does not grant permission to download a platform's audio. Integr
 ## Security notes
 
 - Provider API credentials are read server-side only.
-- The preview endpoint does not download audio.\n- The internal worker endpoint requires a server-only `WORKER_API_SECRET` bearer token and provides claim, heartbeat, and failure/retry actions. It is queue infrastructure only, not an audio downloader.
+- The preview endpoint does not download audio.
+- The internal worker endpoint requires a server-only `WORKER_API_SECRET` bearer token and provides claim, heartbeat, and failure/retry actions. It is queue infrastructure only, not an audio downloader.
 - Before any arbitrary server-side URL fetching, implement DNS/IP checks, redirect revalidation, outbound network controls, timeouts, and response-size limits.
 - The job model includes an owner-token hash field; job routes must generate random tokens, hash them, and verify ownership for every operation.
 - MongoDB TTL indexes delete documents, not files. A cleanup worker must remove files from local/object storage.
