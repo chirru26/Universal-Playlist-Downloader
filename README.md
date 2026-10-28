@@ -53,6 +53,21 @@ A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript,
    - `POST /api/playlist/provider` detects supported provider URL formats without fetching them.
    - `POST /api/jobs` saves a playlist request to anonymous job history; `GET /api/jobs` lists jobs for the browser’s owner cookie; `DELETE /api/jobs/:jobId` cancels a queued or processing job owned by that browser. `POST /api/uploads` accepts supported user-provided audio files, checks basic file signatures, and queues authorized-upload jobs. The worker converts only those uploads; `GET /api/jobs/:jobId/download` streams completed MP3s only to the owning browser.
 
+## Run the background worker
+
+The worker is a separate long-running Node.js process. It does not run inside a serverless request:
+
+1. Install Node.js 20.9+ and install FFmpeg/FFprobe on the worker host. Verify `ffmpeg -version` and `ffprobe -version`.
+2. Make the same private `AUTHORIZED_UPLOAD_DIR` volume available to both the Next.js app and the worker. Restrict directory access to those services.
+3. On the app, configure `MONGODB_URI`, `WORKER_API_SECRET`, and `AUTHORIZED_UPLOAD_DIR`. On the worker host, set those same values plus `WORKER_APP_URL` to the deployed app's origin. Optional: `WORKER_POLL_MS`, `FFMPEG_PATH`, and `FFPROBE_PATH`.
+4. Start the worker from the repository checkout with:
+
+   ```bash
+   npm run worker
+   ```
+
+Keep the worker running under your host's process supervisor. Do not expose the worker secret to browser/client variables. The worker only processes user-uploaded audio files; playlist URLs are not downloaded. Automated cleanup for expired files and ZIP downloads are still outstanding, so configure storage quotas and clean up orphaned/expired files before production use.
+
 ## API credentials
 
 - **YouTube:** enable the YouTube Data API v3 for a Google Cloud project and set `YOUTUBE_DATA_API_KEY`.
