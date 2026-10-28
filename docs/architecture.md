@@ -33,3 +33,6 @@ Provider metadata integrations must use official or otherwise permitted interfac
 - Add SSRF defenses before any server-side URL fetch: DNS/IP validation, redirect revalidation, outbound network controls, timeouts, and response-size caps.
 - Add a storage cleanup worker that removes physical files and archives.
 - Add automated tests and CI, then verify a production build before deployment.
+
+
+Job cancellation: `DELETE /api/jobs/:jobId` verifies the anonymous owner cookie and only cancels jobs in `queued` or `processing` state. It clears the worker lease so a worker can no longer heartbeat that job. Cancellation does not stop external media work already running; a future worker must check lease validity and cancellation state before publishing outputs.
