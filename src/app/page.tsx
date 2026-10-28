@@ -39,7 +39,10 @@ export default function HomePage() {
   const [savingJob, setSavingJob] = useState(false);
   const [jobMessage, setJobMessage] = useState("");
   const [jobs, setJobs] = useState<JobSummary[]>([]);
-  const [cancellingJobId, setCancellingJobId] = useState<string | null>(null);\n  const [audioFile, setAudioFile] = useState<File | null>(null);\n  const [uploading, setUploading] = useState(false);\n  const [uploadMessage, setUploadMessage] = useState("");
+  const [cancellingJobId, setCancellingJobId] = useState<string | null>(null);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState("");
 
   const refreshJobs = useCallback(async () => {
     try {
