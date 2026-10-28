@@ -70,7 +70,7 @@ export async function POST(request: Request) {
           $inc: { attempts: 1 },
         },
         { sort: { createdAt: 1 }, new: true, runValidators: true },
-      ).select("+leaseTokenHash").lean();
+      ).select("+leaseTokenHash +uploadKey").lean();
 
       if (!job) {
         return NextResponse.json({ job: null, message: "No eligible jobs are waiting." });
