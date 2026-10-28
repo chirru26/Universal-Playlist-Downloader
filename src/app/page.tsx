@@ -39,7 +39,7 @@ export default function HomePage() {
   const [savingJob, setSavingJob] = useState(false);
   const [jobMessage, setJobMessage] = useState("");
   const [jobs, setJobs] = useState<JobSummary[]>([]);
-  const [cancellingJobId, setCancellingJobId] = useState<string | null>(null);
+  const [cancellingJobId, setCancellingJobId] = useState<string | null>(null);\n  const [audioFile, setAudioFile] = useState<File | null>(null);\n  const [uploading, setUploading] = useState(false);\n  const [uploadMessage, setUploadMessage] = useState("");
 
   const refreshJobs = useCallback(async () => {
     try {
@@ -53,6 +53,34 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => { void refreshJobs(); }, [refreshJobs]);
+
+  async function uploadAuthorizedAudio(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!audioFile) {
+      setUploadMessage("Choose an audio file first.");
+      return;
+    }
+    setUploading(true);
+    setUploadMessage("");
+    try {
+      const form = new FormData();
+      form.set("file", audioFile);
+      form.set("qualityKbps", quality);
+      const response = await fetch("/api/uploads", { method: "POST", body: form });
+      const data = (await response.json()) as { message?: string };
+      setUploadMessage(data.message ?? (response.ok ? "Upload saved." : "Upload failed."));
+      if (response.ok) {
+        setAudioFile(null);
+        const input = document.getElementById("authorized-audio-file") as HTMLInputElement | null;
+        if (input) input.value = "";
+        await refreshJobs();
+      }
+    } catch {
+      setUploadMessage("Could not reach the server to upload this file.");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function cancelJob(jobId: string) {
     setCancellingJobId(jobId);
@@ -160,6 +188,17 @@ export default function HomePage() {
           </div>
           {message && <div className="notice" role="status">{message}</div>}
         </form>
+
+        <section className="playlist-preview upload-panel" aria-label="Upload authorized audio">
+          <div className="preview-header"><div><span className="preview-provider">FOR FILES YOU OWN OR MAY PROCESS</span><h2>Upload audio</h2></div><span className="track-count">25 MB max</span></div>
+          <p className="preview-disclaimer">Upload an audio file you own or are authorized to process. The file is stored in a private server directory and is not publicly served.</p>
+          <form onSubmit={uploadAuthorizedAudio} className="upload-form">
+            <label className="input-label" htmlFor="authorized-audio-file">AUDIO FILE (MP3, WAV, FLAC, OGG, M4A, AAC)</label>
+            <input id="authorized-audio-file" type="file" accept=".mp3,.wav,.flac,.ogg,.m4a,.aac,audio/*" onChange={(event) => setAudioFile(event.target.files?.[0] ?? null)} />
+            <button type="submit" className="import-button" disabled={uploading || !audioFile}>{uploading ? "Uploading…" : "Upload and queue"}</button>
+            {uploadMessage && <p className="notice" role="status">{uploadMessage}</p>}
+          </form>
+        </section>
 
         {playlistTitle && <section className="playlist-preview" aria-label="Playlist preview">
           <div className="preview-header">
