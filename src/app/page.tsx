@@ -39,6 +39,7 @@ export default function HomePage() {
   const [savingJob, setSavingJob] = useState(false);
   const [jobMessage, setJobMessage] = useState("");
   const [jobs, setJobs] = useState<JobSummary[]>([]);
+  const [cancellingJobId, setCancellingJobId] = useState<string | null>(null);
 
   const refreshJobs = useCallback(async () => {
     try {
@@ -52,6 +53,24 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => { void refreshJobs(); }, [refreshJobs]);
+
+  async function cancelJob(jobId: string) {
+    setCancellingJobId(jobId);
+    try {
+      const response = await fetch(`/api/jobs/${jobId}`, { method: "DELETE" });
+      const data = (await response.json()) as { message?: string; job?: { id: string; status: string } };
+      if (!response.ok) {
+        setJobMessage(data.message ?? "Could not cancel this job.");
+        return;
+      }
+      setJobs((current) => current.map((job) => job.id === jobId ? { ...job, status: data.job?.status ?? "cancelled" } : job));
+      setJobMessage("Job cancelled.");
+    } catch {
+      setJobMessage("Could not reach the server to cancel this job.");
+    } finally {
+      setCancellingJobId(null);
+    }
+  }
 
   async function saveJob() {
     setSavingJob(true);
@@ -173,7 +192,7 @@ export default function HomePage() {
 
         <section className="jobs-panel" aria-label="Your recent jobs">
           <div className="preview-header"><div><span className="preview-provider">PRIVATE TO THIS BROWSER</span><h2>Recent jobs</h2></div><button type="button" className="text-button" onClick={() => void refreshJobs()}>Refresh</button></div>
-          {jobs.length ? <div className="job-list">{jobs.map((job) => <article className="job-row" key={job.id}><span className="job-status-dot" aria-hidden="true" /><span className="track-details"><strong>{job.provider} · {job.qualityKbps} kbps</strong><small>{job.sourceUrl}</small></span><span className="job-status">{job.status}</span></article>)}</div> : <p className="preview-empty">Saved jobs will appear here after you save one. Database setup is required.</p>}
+          {jobs.length ? <div className="job-list">{jobs.map((job) => <article className="job-row" key={job.id}><span className="job-status-dot" aria-hidden="true" /><span className="track-details"><strong>{job.provider} · {job.qualityKbps} kbps</strong><small>{job.sourceUrl}</small></span><span className="job-status">{job.status}</span>{["queued", "processing"].includes(job.status) && <button type="button" className="text-button" onClick={() => void cancelJob(job.id)} disabled={cancellingJobId !== null}>{cancellingJobId === job.id ? "Cancelling…" : "Cancel"}</button>}</article>)}</div> : <p className="preview-empty">Saved jobs will appear here after you save one. Database setup is required.</p>}
           <p className="preview-disclaimer">Jobs are saved for up to 7 days. Processing is not active yet; these are saved requests, not completed downloads.</p>
         </section>
       </section>
