@@ -2,7 +2,7 @@
 
 A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript, Tailwind CSS, and MongoDB.
 
-> **Current status:** The app has a responsive UI, URL/provider detection, a metadata API foundation for YouTube playlists and Spotify playlists/albums, a MongoDB connection layer, a download-job model, a health endpoint, and CI configuration. Provider metadata calls require your own API credentials. SoundCloud integration, persisted jobs, background processing, audio conversion, and actual downloads are not implemented yet.
+> **Current status:** The app has a responsive UI, URL/provider detection, a metadata API foundation for YouTube playlists and Spotify playlists/albums, a MongoDB connection layer, a download-job model, a health endpoint, and CI configuration. Provider metadata calls require your own API credentials. SoundCloud metadata, background processing, audio conversion, and actual downloads are not implemented yet. Anonymous job creation and history are now persisted when MongoDB is configured; saved jobs remain queued until a worker is added.
 
 ## Stack
 
@@ -49,7 +49,7 @@ A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript,
 5. Open http://localhost:3000.
    - `/api/health` reports database configuration/connectivity.
    - The homepage Preview button calls `POST /api/playlist/metadata`.
-   - `POST /api/playlist/provider` detects supported provider URL formats without fetching them.
+   - `POST /api/playlist/provider` detects supported provider URL formats without fetching them.\n   - `POST /api/jobs` saves a playlist request to anonymous job history; `GET /api/jobs` lists jobs for the browser’s owner cookie. Both require MongoDB for persistence.
 
 ## API credentials
 
@@ -76,7 +76,7 @@ A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript,
 6. [x] MongoDB connection utility, job model, health endpoint
 7. [ ] Pagination controls and integration tests
 8. [ ] SoundCloud metadata adapter using permitted access
-9. [ ] Anonymous owner tokens, job APIs, and access checks
+9. [x] Anonymous owner tokens, job APIs, and access checks
 10. [ ] Worker queue, retries, cancellation, and secure temporary storage
 11. [ ] Individual downloads and ZIP generation for authorized audio sources
 12. [ ] Rate limits, quotas, cleanup, tests, CI verification, and deployment
