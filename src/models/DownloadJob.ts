@@ -41,7 +41,7 @@ const downloadJobSchema = new Schema(
       index: true,
     },
     tracks: { type: [trackSchema], default: [] },
-    progressPercent: { type: Number, min: 0, max: 100, default: 0 },
+    progressPercent: { type: Number, min: 0, max: 100, default: 0 },\n    attempts: { type: Number, min: 0, max: 3, default: 0 },\n    leaseTokenHash: { type: String, select: false },\n    leaseExpiresAt: { type: Date, default: undefined, index: true },
     archiveKey: { type: String, maxlength: 500, select: false },
     errorCode: { type: String, trim: true, maxlength: 80 },
     expiresAt: { type: Date, default: undefined },
