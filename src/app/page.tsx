@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
-type PreviewTrack = {
+type JobSummary = { id: string; sourceUrl: string; provider: string; qualityKbps: number; status: string; progressPercent: number; trackCount: number; createdAt?: string };\n\ntype PreviewTrack = {
   providerTrackId: string;
   title: string;
   artist: string;
@@ -33,7 +33,7 @@ export default function HomePage() {
   const [busy, setBusy] = useState(false);
   const [playlistTitle, setPlaylistTitle] = useState("");
   const [tracks, setTracks] = useState<PreviewTrack[]>([]);
-  const [provider, setProvider] = useState("");
+  const [provider, setProvider] = useState("");\n  const [savingJob, setSavingJob] = useState(false);\n  const [jobMessage, setJobMessage] = useState("");\n  const [jobs, setJobs] = useState<JobSummary[]>([]);\n\n  async function refreshJobs() {\n    try {\n      const response = await fetch("/api/jobs", { cache: "no-store" });\n      if (!response.ok) return;\n      const data = (await response.json()) as { jobs?: JobSummary[] };\n      setJobs(data.jobs ?? []);\n    } catch {\n      // Job history is optional until the database is configured.\n    }\n  }\n\n  useEffect(() => { void refreshJobs(); }, []);\n\n  async function saveJob() {\n    setSavingJob(true);\n    setJobMessage("");\n    try {\n      const response = await fetch("/api/jobs", {\n        method: "POST",\n        headers: { "Content-Type": "application/json" },\n        body: JSON.stringify({ url, qualityKbps: Number(quality) }),\n      });\n      const data = (await response.json()) as { message?: string; job?: JobSummary };\n      setJobMessage(data.message ?? (response.ok ? "Job saved." : "Could not save this job."));\n      if (response.ok && data.job) setJobs((current) => [data.job!, ...current.filter((job) => job.id !== data.job!.id)].slice(0, 20));\n    } catch {\n      setJobMessage("Could not reach the server to save this job.");\n    } finally {\n      setSavingJob(false);\n    }\n  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -117,7 +117,7 @@ export default function HomePage() {
               <span className="track-duration">{formatDuration(track.durationSeconds)}</span>
             </article>)}
           </div> : <p className="preview-empty">No previewable tracks were returned for this link.</p>}
-          <p className="preview-disclaimer">Metadata preview only. This app does not download audio yet.</p>
+          <p className="preview-disclaimer">Metadata preview only. This app does not download audio yet.</p>\n          <button type="button" className="import-button job-save-button" onClick={saveJob} disabled={savingJob || !url}>\n            {savingJob ? "Saving…" : "Save to job history"}\n          </button>\n          {jobMessage && <p className="notice" role="status">{jobMessage}</p>}
         </section>}
 
         <div className="platform-heading"><span>BUILT FOR YOUR MUSIC WORKFLOW</span><span className="platform-line" /></div>
@@ -128,7 +128,7 @@ export default function HomePage() {
             <span className="platform-arrow" aria-hidden="true">↗</span>
           </div>)}
         </div>
-        <p className="platform-note">Metadata access does not grant permission to download a service’s audio.</p>
+        <p className="platform-note">Metadata access does not grant permission to download a service’s audio.</p>\n\n        <section className="jobs-panel" aria-label="Your recent jobs">\n          <div className="preview-header"><div><span className="preview-provider">PRIVATE TO THIS BROWSER</span><h2>Recent jobs</h2></div><button type="button" className="text-button" onClick={() => void refreshJobs()}>Refresh</button></div>\n          {jobs.length ? <div className="job-list">{jobs.map((job) => <article className="job-row" key={job.id}><span className="job-status-dot" aria-hidden="true" /><span className="track-details"><strong>{job.provider} · {job.qualityKbps} kbps</strong><small>{job.sourceUrl}</small></span><span className="job-status">{job.status}</span></article>)}</div> : <p className="preview-empty">Saved jobs will appear here after you save one. Database setup is required.</p>}\n          <p className="preview-disclaimer">Jobs are saved for up to 7 days. Processing is not active yet; these are saved requests, not completed downloads.</p>\n        </section>
       </section>
 
       <section className="steps-section">
