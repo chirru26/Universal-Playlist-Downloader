@@ -12,7 +12,8 @@ const MAX_ATTEMPTS = 3;
 
 const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("claim") }),
-  z.object({ action: z.literal("heartbeat"), jobId: z.string().regex(/^[a-f0-9]{24}$/), leaseToken: z.string().regex(/^[a-f0-9]{64}$/) }),
+  z.object({ action: z.literal("heartbeat"), jobId: z.string().regex(/^[a-f0-9]{24}$/), leaseToken: z.string().regex(/^[a-f0-9]{64}$/), progressPercent: z.number().int().min(0).max(99).optional() }),
+  z.object({ action: z.literal("complete"), jobId: z.string().regex(/^[a-f0-9]{24}$/), leaseToken: z.string().regex(/^[a-f0-9]{64}$/), outputKey: z.string().regex(/^[a-f0-9]{48}\\.mp3$/) }),
   z.object({ action: z.literal("fail"), jobId: z.string().regex(/^[a-f0-9]{24}$/), leaseToken: z.string().regex(/^[a-f0-9]{64}$/), errorCode: z.string().trim().min(1).max(80).regex(/^[A-Z0-9_]+$/) }),
 ]);
 
@@ -107,12 +108,21 @@ export async function POST(request: Request) {
     if (parsed.data.action === "heartbeat") {
       const updated = await DownloadJob.updateOne(
         { _id: current._id, status: "processing", leaseTokenHash: hash(leaseToken) },
-        { $set: { leaseExpiresAt: new Date(Date.now() + LEASE_MS) } },
+        { $set: { leaseExpiresAt: new Date(Date.now() + LEASE_MS), ...(parsed.data.action === "heartbeat" && parsed.data.progressPercent !== undefined ? { progressPercent: parsed.data.progressPercent } : {}) } },
       );
       if (!updated.modifiedCount) {
         return NextResponse.json({ message: "Job lease could not be renewed." }, { status: 409 });
       }
       return NextResponse.json({ renewed: true, leaseMs: LEASE_MS });
+    }
+
+    if (parsed.data.action === "complete") {
+      const completed = await DownloadJob.updateOne(
+        { _id: current._id, status: "processing", leaseTokenHash: hash(leaseToken), leaseExpiresAt: { $gt: new Date() } },
+        { $set: { status: "completed", progressPercent: 100, outputKey: parsed.data.outputKey }, $unset: { leaseTokenHash: "", leaseExpiresAt: "", errorCode: "" } },
+      );
+      if (!completed.modifiedCount) return NextResponse.json({ message: "Job lease was lost before completion." }, { status: 409 });
+      return NextResponse.json({ status: "completed", progressPercent: 100 });
     }
 
     const shouldRetry = current.attempts < MAX_ATTEMPTS;
