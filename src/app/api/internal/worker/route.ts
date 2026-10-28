@@ -13,7 +13,7 @@ const MAX_ATTEMPTS = 3;
 const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("claim") }),
   z.object({ action: z.literal("heartbeat"), jobId: z.string().regex(/^[a-f0-9]{24}$/), leaseToken: z.string().regex(/^[a-f0-9]{64}$/), progressPercent: z.number().int().min(0).max(99).optional() }),
-  z.object({ action: z.literal("complete"), jobId: z.string().regex(/^[a-f0-9]{24}$/), leaseToken: z.string().regex(/^[a-f0-9]{64}$/), outputKey: z.string().regex(/^[a-f0-9]{48}\\.mp3$/) }),
+  z.object({ action: z.literal("complete"), jobId: z.string().regex(/^[a-f0-9]{24}$/), leaseToken: z.string().regex(/^[a-f0-9]{64}$/), outputKey: z.string().regex(/^[a-f0-9]{48}\.mp3$/) }),
   z.object({ action: z.literal("fail"), jobId: z.string().regex(/^[a-f0-9]{24}$/), leaseToken: z.string().regex(/^[a-f0-9]{64}$/), errorCode: z.string().trim().min(1).max(80).regex(/^[A-Z0-9_]+$/) }),
 ]);
 
