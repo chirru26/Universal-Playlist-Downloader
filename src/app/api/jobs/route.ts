@@ -19,6 +19,8 @@ const createJobSchema = z.object({
 function safeJob(job: {
   _id: unknown;
   sourceUrl: string;
+  sourceType?: string;
+  originalFilename?: string;
   provider: string;
   qualityKbps: number;
   status: string;
@@ -30,6 +32,8 @@ function safeJob(job: {
   return {
     id: String(job._id),
     sourceUrl: job.sourceUrl,
+    label: job.sourceType === "authorized-upload" ? (job.originalFilename || "Authorized audio upload") : job.sourceUrl,
+    downloadUrl: job.sourceType === "authorized-upload" && job.status === "completed" ? `/api/jobs/${String(job._id)}/download` : undefined,
     provider: job.provider,
     qualityKbps: job.qualityKbps,
     status: job.status,
@@ -51,7 +55,7 @@ export async function GET(request: Request) {
     const jobs = await DownloadJob.find({ ownerTokenHash: hashOwnerToken(token) })
       .sort({ createdAt: -1 })
       .limit(20)
-      .select("_id sourceUrl provider qualityKbps status progressPercent tracks createdAt updatedAt")
+      .select("_id sourceUrl sourceType originalFilename provider qualityKbps status progressPercent tracks createdAt updatedAt")
       .lean();
 
     return NextResponse.json({ jobs: jobs.map((job) => safeJob(job)) });
