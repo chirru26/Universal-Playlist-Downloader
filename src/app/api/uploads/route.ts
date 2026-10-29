@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   const contentLength = request.headers.get("content-length");
   if (contentLength !== null) {
     const requestBytes = Number(contentLength);
-    if (!/^\\d+$/.test(contentLength) || !Number.isSafeInteger(requestBytes) || requestBytes > MAX_MULTIPART_REQUEST_BYTES) {
+    if (!/^\d+$/.test(contentLength) || !Number.isSafeInteger(requestBytes) || requestBytes > MAX_MULTIPART_REQUEST_BYTES) {
       return NextResponse.json({ message: "The upload request exceeds the 100 MB video upload limit." }, { status: 413 });
     }
   }
