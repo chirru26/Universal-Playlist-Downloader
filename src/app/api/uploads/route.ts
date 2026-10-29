@@ -107,8 +107,7 @@ export async function POST(request: Request) {
           progressPercent: job.progressPercent,
           createdAt: job.createdAt,
         },
-        processingEnabled: false,
-        message: "Private upload saved and queued. A separately deployed worker with access to the same private directory is required to process it.",
+        message: "Upload accepted and queued. Once the background worker finishes conversion, use the Download MP3 link in Recent jobs.",
       }, { status: 201 });
       if (!existingToken) setOwnerCookie(response, ownerToken);
       return response;
