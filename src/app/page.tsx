@@ -152,16 +152,16 @@ export default function HomePage() {
       }
 
       const additions = data.tracks ?? [];
-      let combinedCount = tracks.length;
+      const seen = new Set(tracks.map((track) => track.providerTrackId));
+      const uniqueAdditions = additions.filter((track) => {
+        if (seen.has(track.providerTrackId)) return false;
+        seen.add(track.providerTrackId);
+        return true;
+      });
+      const combinedCount = tracks.length + uniqueAdditions.length;
       setTracks((current) => {
-        const seen = new Set(current.map((track) => track.providerTrackId));
-        const uniqueAdditions = additions.filter((track) => {
-          if (seen.has(track.providerTrackId)) return false;
-          seen.add(track.providerTrackId);
-          return true;
-        });
-        combinedCount = current.length + uniqueAdditions.length;
-        return [...current, ...uniqueAdditions];
+        const currentIds = new Set(current.map((track) => track.providerTrackId));
+        return [...current, ...uniqueAdditions.filter((track) => !currentIds.has(track.providerTrackId))];
       });
       setNextPageToken(data.nextPageToken ?? null);
       if (typeof data.totalTracks === "number") setTotalTracks(data.totalTracks);
