@@ -158,7 +158,12 @@ export default function HomePage() {
       const more = data.tracks ?? [];
       setJamendoTracks((current) => {
         const ids = new Set(current.map((track) => track.id));
-        return [...current, ...more.filter((track) => !ids.has(track.id))];
+        const uniqueMore = more.filter((track) => {
+          if (ids.has(track.id)) return false;
+          ids.add(track.id);
+          return true;
+        });
+        return [...current, ...uniqueMore];
       });
       setJamendoOffset(data.nextOffset ?? ((data.offset ?? jamendoOffset) + more.length));
       setJamendoHasMore(Boolean(data.hasMore));
@@ -357,7 +362,7 @@ export default function HomePage() {
         {provider === "youtube" && <section className="playlist-preview youtube-owned-panel" aria-label="Convert your own YouTube video">
           <div className="preview-header"><div><span className="preview-provider">YOUR OWN YOUTUBE VIDEOS</span><h2>Convert an upload you own</h2></div></div>
           <p className="preview-disclaimer">YouTube does not provide an API for downloading arbitrary playlist audio. If a video is yours, YouTube lets you download eligible uploads from Studio. Download the MP4 there, then upload it below to convert its audio to MP3.</p>
-          <a className="text-button" href="https://studio.youtube.com/" target="_blank" rel="noopener noreferrer">Open YouTube Studio ↗</a>
+          <a className="text-button" href="https://studio.youtube.com/" target="_blank" rel="noopener noreferrer">Open YouTube Studio ↗</a> <a className="track-source-link" href="https://support.google.com/youtube/answer/56100?hl=en" target="_blank" rel="noopener noreferrer">Official download instructions</a>
           <p className="preview-empty">In Studio: Content → select your video → menu → Download. This only works for eligible videos on your own channel. Then upload the MP4 in the section below.</p>
         </section>}
 
