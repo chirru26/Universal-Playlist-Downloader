@@ -2,7 +2,7 @@
 
 A privacy-conscious, anonymous playlist workflow built with Next.js, TypeScript, Tailwind CSS, and MongoDB.
 
-> **Current status:** The app has a responsive UI, URL/provider detection, a metadata API foundation for YouTube playlists and Spotify playlists/albums, a MongoDB connection layer, a download-job model, a health endpoint, and CI configuration. Provider metadata calls require your own API credentials. SoundCloud metadata and provider-platform audio downloading are not implemented. A separate Node.js worker now claims only authorized user-upload jobs, converts accepted audio to MP3 with FFmpeg, reports progress, and exposes completed files through an owner-authenticated download endpoint. This requires a self-hosted app and worker sharing a private directory, MongoDB, FFmpeg, and FFprobe. Anonymous job history and cancellation are persisted when MongoDB is configured.
+> **Current status:** The app has a responsive UI, URL/provider detection, a metadata API foundation for YouTube playlists and Spotify playlists/albums, a MongoDB connection layer, a download-job model, a health endpoint, and CI configuration. Provider metadata calls require your own API credentials. SoundCloud metadata and provider-platform audio downloading are not implemented. A separate Node.js worker claims only authorized user-upload jobs, converts accepted audio to MP3 with FFmpeg, reports progress, and exposes completed files through an owner-authenticated download endpoint. Playlist URLs remain metadata-only; they are not audio download sources. This requires a self-hosted app and worker sharing a private directory, MongoDB, FFmpeg, and FFprobe. Anonymous job history and cancellation are persisted when MongoDB is configured.
 
 ## Stack
 
