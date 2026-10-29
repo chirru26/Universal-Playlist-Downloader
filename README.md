@@ -61,20 +61,20 @@ The worker is a separate long-running Node.js process. It does not run inside a 
 
 1. Install Node.js 20.9+ and install FFmpeg/FFprobe on the worker host. Verify `ffmpeg -version` and `ffprobe -version`.
 2. Make the same private `AUTHORIZED_UPLOAD_DIR` volume available to both the Next.js app and the worker. Restrict directory access to those services.
-3. On the app, configure `MONGODB_URI`, `WORKER_API_SECRET`, and `AUTHORIZED_UPLOAD_DIR`. On the worker host, set those same values plus `WORKER_APP_URL` to the deployed app's origin. Optional: `WORKER_POLL_MS`, `FFMPEG_PATH`, and `FFPROBE_PATH`.
+3. On the app, configure `MONGODB_URI`, `WORKER_API_SECRET`, and `AUTHORIZED_UPLOAD_DIR`. Locally, set `WORKER_APP_URL=http://localhost:3000`; for a deployed app, use its HTTPS origin. The worker reads `.env.local` when that file exists (host-provided environment variables take precedence). On a Windows local machine, use a path such as `AUTHORIZED_UPLOAD_DIR=C:/tunefetch/uploads`. Optional: `WORKER_POLL_MS`, `FFMPEG_PATH`, and `FFPROBE_PATH`.
 4. Start the worker from the repository checkout with:
 
    ```bash
    npm run worker
    ```
 
-Keep the worker running under your host's process supervisor. Do not expose the worker secret to browser/client variables. The worker only processes user-uploaded authorized media; it never downloads a YouTube or Spotify playlist URL. For eligible videos that you uploaded to your own YouTube channel, YouTube Studio can provide an MP4; upload that file here for audio conversion. Other users’ videos are not supported by this workflow. Automated cleanup for expired files and ZIP downloads are still outstanding, so configure storage quotas and clean up orphaned/expired files before production use.
+Keep the worker running under your host's process supervisor. For local development, start `npm run dev` in one terminal and `npm run worker` in a second terminal. Do not expose the worker secret to browser/client variables. The worker only processes user-uploaded authorized media; it never downloads a YouTube or Spotify playlist URL. For eligible videos that you uploaded to your own YouTube channel, YouTube Studio can provide an MP4; upload that file here for audio conversion. Other users’ videos are not supported by this workflow. Automated cleanup for expired files and ZIP downloads are still outstanding, so configure storage quotas and clean up orphaned/expired files before production use.
 
 ## API credentials
 
 - **YouTube:** enable the YouTube Data API v3 for a Google Cloud project and set `YOUTUBE_DATA_API_KEY`.
 - **Spotify:** create an app in the Spotify developer dashboard and set `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET`.
-- **Jamendo:** register an app in the [Jamendo developer portal](https://devportal.jamendo.com/) and set `JAMENDO_CLIENT_ID`. The UI only shows a download action when the track metadata says the artist allows downloads; the server checks this permission again at download time.
+- **Jamendo:** register an app in the [Jamendo developer portal](https://devportal.jamendo.com/) and set `JAMENDO_CLIENT_ID` in `.env.local` (then restart Next.js). The UI only shows a download action when the track metadata says the artist allows downloads; the server checks this permission again at download time.
 - Do not expose these credentials in client-side code or commit them to Git.
 - Metadata API access is subject to each provider's current access rules, quotas, and terms.
 
