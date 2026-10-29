@@ -100,7 +100,6 @@ Keep the worker running under your host's process supervisor. Do not expose the 
 10. [x] Worker queue, cancellation, authorized upload intake, FFmpeg conversion/progress, and owner-authenticated MP3 downloads
 11. [x] Jamendo search and downloads with artist permission checks; YouTube-own-upload MP4-to-MP3 workflow
 12. [ ] ZIP generation, secure storage cleanup, rate limits, integration tests, CI verification, and deployment
-12. [ ] Rate limits, quotas, cleanup, tests, CI verification, and deployment
 
 ## Responsible-use boundaries
 
