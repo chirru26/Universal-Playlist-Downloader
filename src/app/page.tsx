@@ -267,7 +267,7 @@ export default function HomePage() {
           {tracks.length > 0 ? <div className="track-list">
             {tracks.map((track, index) => <article className="track-row" key={track.providerTrackId || index}>
               {track.artworkUrl ? <img className="track-artwork" src={track.artworkUrl} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span className="track-placeholder" aria-hidden="true">♫</span>}
-              <span className="track-details"><strong>{track.title}</strong><small>{track.artist || "Artist unavailable"}</small></span>
+              <span className="track-details"><strong>{track.title}</strong><small>{track.artist || "Artist unavailable"}</small><a className="track-source-link" href={provider === "youtube" ? `https://www.youtube.com/watch?v=${encodeURIComponent(track.providerTrackId)}` : provider === "spotify" ? `https://open.spotify.com/track/${encodeURIComponent(track.providerTrackId)}` : url} target="_blank" rel="noopener noreferrer">{provider === "youtube" ? "Open on YouTube" : provider === "spotify" ? "Open on Spotify" : "Open source"} ↗</a></span>
               <span className="track-duration">{formatDuration(track.durationSeconds)}</span>
             </article>)}
           </div> : <p className="preview-empty">No previewable tracks were returned for this link.</p>}
