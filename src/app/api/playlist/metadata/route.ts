@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
   url: z.string().trim().url().max(2048),
+  pageToken: z.string().max(500).optional(),
 });
 
 export async function POST(request: Request) {
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const metadata = await getPlaylistMetadata(new URL(inspection.canonicalUrl));
+    const metadata = await getPlaylistMetadata(new URL(inspection.canonicalUrl), parsed.data.pageToken);
     return NextResponse.json({
       status: "metadata-loaded",
       provider: metadata.provider,
