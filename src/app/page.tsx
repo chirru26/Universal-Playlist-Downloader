@@ -150,7 +150,7 @@ export default function HomePage() {
     setJamendoMessage("");
     try {
       const response = await fetch(`/api/jamendo/search?q=${encodeURIComponent(jamendoQuery.trim())}&offset=${jamendoOffset}`, { cache: "no-store" });
-      const data = (await response.json()) as { message?: string; tracks?: JamendoTrack[]; hasMore?: boolean; offset?: number };
+      const data = (await response.json()) as { message?: string; tracks?: JamendoTrack[]; hasMore?: boolean; offset?: number; nextOffset?: number };
       if (!response.ok) {
         setJamendoMessage(data.message ?? "Could not load more tracks.");
         return;
