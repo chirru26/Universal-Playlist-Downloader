@@ -91,7 +91,7 @@ Keep the worker running under your host's process supervisor. Do not expose the 
 4. [x] Spotify playlist/album metadata adapter foundation
 5. [x] Metadata preview UI
 6. [x] MongoDB connection utility, job model, health endpoint
-7. [ ] Pagination controls and integration tests
+7. [x] Provider metadata pagination controls; [ ] integration tests
 8. [ ] SoundCloud metadata adapter using permitted access
 9. [x] Anonymous owner tokens, job APIs, access checks, and cancellation
 10. [x] Worker queue claim/lease/retry API, cancellation, authorized upload intake, FFmpeg worker runtime, conversion progress, and owner-authenticated individual MP3 downloads
