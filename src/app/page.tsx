@@ -401,7 +401,7 @@ export default function HomePage() {
           <p className="preview-disclaimer">Upload up to 5 files at a time that you own or are authorized to process. You can select multiple eligible MP4/WebM videos downloaded from your own YouTube Studio; the app queues them one at a time for MP3 conversion.</p>
           <form onSubmit={uploadAuthorizedMedia} className="upload-form">
             <label className="input-label" htmlFor="authorized-audio-file">AUDIO OR VIDEO FILES (MP3, WAV, FLAC, OGG, M4A, AAC, MP4, WEBM)</label>
-            <input id="authorized-audio-file" type="file" accept=".mp3,.wav,.flac,.ogg,.m4a,.aac,.mp4,.webm,audio/*,video/mp4,video/webm" multiple onChange={(event) => setAudioFiles(Array.from(event.target.files ?? []))} />
+            <input id="authorized-audio-file" type="file" accept=".mp3,.wav,.flac,.ogg,.m4a,.aac,.mp4,.webm,audio/*,video/mp4,video/webm" multiple disabled={uploading} onChange={(event) => setAudioFiles(Array.from(event.target.files ?? []))} />
             <button type="submit" className="import-button" disabled={uploading || audioFiles.length === 0}>{uploading ? "Uploading…" : audioFiles.length ? `Upload ${audioFiles.length} file${audioFiles.length === 1 ? "" : "s"} for MP3 conversion` : "Choose files to convert"}</button>
             {uploadMessage && <p className="notice" role="status">{uploadMessage}</p>}
           </form>
