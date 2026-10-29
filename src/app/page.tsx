@@ -12,6 +12,18 @@ type PreviewTrack = {
   artworkUrl?: string;
 };
 
+type JamendoTrack = {
+  id: string;
+  title: string;
+  artist: string;
+  album: string;
+  durationSeconds: number;
+  artworkUrl?: string;
+  trackUrl?: string;
+  licenseUrl?: string;
+  downloadAllowed: boolean;
+};
+
 const platforms = [
   { name: "YouTube", detail: "Playlist metadata", mark: "Y", className: "youtube" },
   { name: "Spotify", detail: "Playlist metadata", mark: "S", className: "spotify" },
@@ -46,6 +58,12 @@ export default function HomePage() {
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState("");
+  const [jamendoQuery, setJamendoQuery] = useState("");
+  const [jamendoTracks, setJamendoTracks] = useState<JamendoTrack[]>([]);
+  const [jamendoBusy, setJamendoBusy] = useState(false);
+  const [jamendoMessage, setJamendoMessage] = useState("");
+  const [jamendoOffset, setJamendoOffset] = useState(0);
+  const [jamendoHasMore, setJamendoHasMore] = useState(false);
 
   const refreshJobs = useCallback(async () => {
     try {
@@ -91,6 +109,64 @@ export default function HomePage() {
       setUploadMessage("Could not reach the server to upload this file.");
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function searchJamendo(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const query = jamendoQuery.trim();
+    if (query.length < 2) {
+      setJamendoMessage("Enter at least two characters to search.");
+      return;
+    }
+
+    setJamendoBusy(true);
+    setJamendoMessage("");
+    setJamendoTracks([]);
+    setJamendoOffset(0);
+    setJamendoHasMore(false);
+    try {
+      const response = await fetch(`/api/jamendo/search?q=${encodeURIComponent(query)}&offset=0`, { cache: "no-store" });
+      const data = (await response.json()) as { message?: string; tracks?: JamendoTrack[]; hasMore?: boolean; offset?: number };
+      if (!response.ok) {
+        setJamendoMessage(data.message ?? "Jamendo search failed.");
+        return;
+      }
+      const found = data.tracks ?? [];
+      setJamendoTracks(found);
+      setJamendoOffset((data.offset ?? 0) + found.length);
+      setJamendoHasMore(Boolean(data.hasMore));
+      setJamendoMessage(found.length ? `Found ${found.length} track(s). Download is available only when the artist permits it.` : "No tracks found. Try another song, artist, or genre.");
+    } catch {
+      setJamendoMessage("Could not reach Jamendo search. Please try again.");
+    } finally {
+      setJamendoBusy(false);
+    }
+  }
+
+  async function loadMoreJamendo() {
+    if (jamendoBusy || !jamendoHasMore || !jamendoQuery.trim()) return;
+    setJamendoBusy(true);
+    setJamendoMessage("");
+    try {
+      const response = await fetch(`/api/jamendo/search?q=${encodeURIComponent(jamendoQuery.trim())}&offset=${jamendoOffset}`, { cache: "no-store" });
+      const data = (await response.json()) as { message?: string; tracks?: JamendoTrack[]; hasMore?: boolean; offset?: number };
+      if (!response.ok) {
+        setJamendoMessage(data.message ?? "Could not load more tracks.");
+        return;
+      }
+      const more = data.tracks ?? [];
+      setJamendoTracks((current) => {
+        const ids = new Set(current.map((track) => track.id));
+        return [...current, ...more.filter((track) => !ids.has(track.id))];
+      });
+      setJamendoOffset((data.offset ?? jamendoOffset) + more.length);
+      setJamendoHasMore(Boolean(data.hasMore));
+      setJamendoMessage(more.length ? `Loaded ${more.length} more track(s).` : "No additional tracks were returned.");
+    } catch {
+      setJamendoMessage("Could not reach Jamendo. Please try again.");
+    } finally {
+      setJamendoBusy(false);
     }
   }
 
@@ -248,12 +324,49 @@ export default function HomePage() {
           {message && <div className="notice" role="status">{message}</div>}
         </form>
 
-        <section className="playlist-preview upload-panel" aria-label="Upload authorized audio">
-          <div className="preview-header"><div><span className="preview-provider">FOR FILES YOU OWN OR MAY PROCESS</span><h2>Upload audio</h2></div><span className="track-count">25 MB max</span></div>
-          <p className="preview-disclaimer">Upload audio you own or are authorized to process. The background worker converts it to MP3; completed files appear in Recent jobs with a Download MP3 link.</p>
+        <section className="playlist-preview jamendo-panel" aria-label="Jamendo downloadable music">
+          <div className="preview-header">
+            <div><span className="preview-provider">ARTIST-PERMITTED DOWNLOADS</span><h2>Discover downloadable music</h2></div>
+            <span className="track-count">Jamendo</span>
+          </div>
+          <p className="preview-disclaimer">Search independent music. The Download MP3 button appears only when Jamendo says the artist allows downloads; the permission is checked again when you click it.</p>
+          <form className="jamendo-search" onSubmit={searchJamendo}>
+            <input aria-label="Search Jamendo tracks" type="search" minLength={2} maxLength={120} placeholder="Search a song, artist, or genre" value={jamendoQuery} onChange={(event) => setJamendoQuery(event.target.value)} required />
+            <button type="submit" className="import-button" disabled={jamendoBusy}>{jamendoBusy ? "Searching…" : "Search songs"}</button>
+          </form>
+          {jamendoMessage && <p className="notice" role="status">{jamendoMessage}</p>}
+          {jamendoTracks.length > 0 && <div className="track-list jamendo-results">
+            {jamendoTracks.map((track) => <article className="track-row jamendo-row" key={track.id}>
+              {track.artworkUrl ? <img className="track-artwork" src={track.artworkUrl} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span className="track-placeholder" aria-hidden="true">♫</span>}
+              <span className="track-details">
+                <strong>{track.title}</strong>
+                <small>{track.artist}{track.album ? ` · ${track.album}` : ""}</small>
+                <small>{formatDuration(track.durationSeconds)} · {track.downloadAllowed ? "Artist permits downloads" : "Download not permitted by artist"}</small>
+                {track.trackUrl && <a className="track-source-link" href={track.trackUrl} target="_blank" rel="noopener noreferrer">View on Jamendo ↗</a>}
+                {track.licenseUrl && <a className="track-source-link" href={track.licenseUrl} target="_blank" rel="noopener noreferrer">View license ↗</a>}
+              </span>
+              {track.downloadAllowed
+                ? <a className="text-button jamendo-download" href={`/api/jamendo/tracks/${encodeURIComponent(track.id)}/download`}>Download MP3</a>
+                : <span className="job-status jamendo-unavailable">Not downloadable</span>}
+            </article>)}
+          </div>}
+          {jamendoHasMore && <button type="button" className="import-button job-save-button" onClick={() => void loadMoreJamendo()} disabled={jamendoBusy}>{jamendoBusy ? "Loading…" : "Load more songs"}</button>}
+          <p className="preview-disclaimer">Powered by Jamendo. Respect the track license and attribution requirements shown by Jamendo.</p>
+        </section>
+
+        {provider === "youtube" && <section className="playlist-preview youtube-owned-panel" aria-label="Convert your own YouTube video">
+          <div className="preview-header"><div><span className="preview-provider">YOUR OWN YOUTUBE VIDEOS</span><h2>Convert an upload you own</h2></div></div>
+          <p className="preview-disclaimer">YouTube does not provide an API for downloading arbitrary playlist audio. If a video is yours, YouTube lets you download eligible uploads from Studio. Download the MP4 there, then upload it below to convert its audio to MP3.</p>
+          <a className="text-button" href="https://studio.youtube.com/" target="_blank" rel="noopener noreferrer">Open YouTube Studio ↗</a>
+          <p className="preview-empty">In Studio: Content → select your video → menu → Download. This only works for eligible videos on your own channel. Then upload the MP4 in the section below.</p>
+        </section>}
+
+        <section className="playlist-preview upload-panel" aria-label="Upload authorized media">
+          <div className="preview-header"><div><span className="preview-provider">FOR FILES YOU OWN OR MAY PROCESS</span><h2>Upload for MP3 conversion</h2></div><span className="track-count">25 MB audio · 100 MB video</span></div>
+          <p className="preview-disclaimer">Upload audio you own or are authorized to process. You can also upload an MP4/WebM video you own (for example, one downloaded from your own YouTube Studio) and convert its audio to MP3.</p>
           <form onSubmit={uploadAuthorizedAudio} className="upload-form">
-            <label className="input-label" htmlFor="authorized-audio-file">AUDIO FILE (MP3, WAV, FLAC, OGG, M4A, AAC)</label>
-            <input id="authorized-audio-file" type="file" accept=".mp3,.wav,.flac,.ogg,.m4a,.aac,audio/*" onChange={(event) => setAudioFile(event.target.files?.[0] ?? null)} />
+            <label className="input-label" htmlFor="authorized-audio-file">AUDIO OR VIDEO FILE (MP3, WAV, FLAC, OGG, M4A, AAC, MP4, WEBM)</label>
+            <input id="authorized-audio-file" type="file" accept=".mp3,.wav,.flac,.ogg,.m4a,.aac,.mp4,.webm,audio/*,video/mp4,video/webm" onChange={(event) => setAudioFile(event.target.files?.[0] ?? null)} />
             <button type="submit" className="import-button" disabled={uploading || !audioFile}>{uploading ? "Uploading…" : "Upload for MP3 conversion"}</button>
             {uploadMessage && <p className="notice" role="status">{uploadMessage}</p>}
           </form>
