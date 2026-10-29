@@ -1,43 +1,63 @@
 # Architecture notes
 
-## Current request flow
+## Main request flows
 
-```text
+### Playlist metadata preview
+
+\`\`\`text
 Browser
-  |
-  v
-Next.js App Router
-  |-- /api/playlist/preview  -> URL and bitrate validation (no provider fetch yet)
-  |-- /api/health            -> database configuration/connectivity status
-  |
-  v
-MongoDB / Mongoose
-  |-- DownloadJob schema (foundation only; not yet used by a job API)
-```
+  -> POST /api/playlist/metadata
+  -> YouTube Data API or Spotify Web API (metadata only)
+  -> Browser renders playlist title and paginated track metadata
+\`\`\`
 
-## Download job model
+YouTube and Spotify playlist URLs are metadata/official-link inputs only. They are never queued as audio download jobs, and the app does not scrape protected media streams.
 
-The model records the anonymous owner's **token hash**, never the raw ownership token. Job APIs generate a cryptographically random token, store only its hash, and verify ownership for history. Future cancellation and download requests must perform the same owner check. Do not use a public job ID alone as authorization.
+### Jamendo catalog downloads
 
-Jobs support queued/processing/completed/failed/cancelled states, per-track progress, a selected bitrate, and an optional expiry date. Assign expiry only after a job reaches a terminal state. MongoDB TTL deletion removes the document, not generated files; a worker must remove local/object-storage files separately.
+\`\`\`text
+Browser
+  -> GET /api/jamendo/search?q=...
+  -> Jamendo v3 tracks API
+  -> Browser displays search results and download permission
 
-## Provider and media boundary
+Browser clicks Download MP3
+  -> GET /api/jamendo/tracks/:trackId/download
+  -> Server re-checks audiodownload_allowed and validates Jamendo CDN URL
+  -> 302 redirect to the Jamendo-authorized download resource
+\`\`\`
 
-Provider metadata integrations must use official or otherwise permitted interfaces. A provider adapter returning track metadata is not permission to download the audio. Media processing must accept only authorized downloadable source files and must not bypass DRM, authentication, or platform access restrictions.
+The \ `JAMENDO_CLIENT_ID` is kept server-side. A track is downloadable only if Jamendo's latest response explicitly allows it and provides an accepted HTTPS download URL. The UI includes Jamendo track and license links when provided. A download flag is not a blanket grant for commercial reuse; users must follow the listed license and attribution terms.
 
-## Before production
+### Authorized media conversion
 
-- Add rate limiting and request-size limits.
-- Add anonymous owner-token creation, hashing, secure cookie handling, and job-level authorization.
-- The internal worker route supports lease-based claim, heartbeat, and bounded retry. Add a separately deployed trusted worker runtime, cancellation, concurrency limits, and resource quotas.
-- Add SSRF defenses before any server-side URL fetch: DNS/IP validation, redirect revalidation, outbound network controls, timeouts, and response-size caps.
-- Add a storage cleanup worker that removes physical files and archives.
-- Add automated tests and CI, then verify a production build before deployment.
+\`\`\`text
+User uploads audio or eligible MP4/WebM they own/are authorized to process
+  -> POST /api/uploads (signature checks, 25 MB audio / 100 MB video limit)
+  -> Private AUTHORIZED_UPLOAD_DIR + MongoDB queued job
+  -> Separate worker polls /api/internal/worker with WORKER_API_SECRET
+  -> FFprobe duration estimate and FFmpeg MP3 conversion
+  -> Worker reports progress and completes the leased job
+  -> Owner-authenticated GET /api/jobs/:jobId/download streams the MP3
+\`\`\`
 
+For eligible videos uploaded to the user's own YouTube channel, YouTube Studio or Google Takeout can provide a video file. The user uploads that MP4 to TuneFetch for audio conversion. The workflow cannot download other people's videos or extract audio directly from arbitrary YouTube playlist URLs.
 
-Job cancellation: `DELETE /api/jobs/:jobId` verifies the anonymous owner cookie and only cancels jobs in `queued` or `processing` state. It clears the worker lease so a worker can no longer heartbeat that job. Cancellation does not stop external media work already running; a future worker must check lease validity and cancellation state before publishing outputs.
+## Worker and job ownership
 
+- Anonymous job ownership uses a cryptographically random browser token in an HttpOnly cookie. MongoDB stores only its SHA-256 hash.
+- Every job history, cancellation, and completed download lookup verifies the owner token. A public job ID alone is not authorization.
+- The internal worker API requires a server-only \ `WORKER_API_SECRET` bearer token.
+- Job claiming uses a short lease. Heartbeats renew the lease and update progress; failures are retried a bounded number of times.
+- The worker claims only \ `authorized-upload` jobs and uses \ `spawn` with explicit FFmpeg arguments rather than invoking a shell.
+- The app and worker must share a private filesystem directory. Serverless deployments need a private object-storage adapter instead.
+- MongoDB TTL removes expired job documents, not stored media files. An automated cleanup worker is still required.
 
-## Authorized audio upload intake
+## Security and production requirements
 
-`POST /api/uploads` accepts a user-provided audio file up to 25 MB, checks the file signature against a small supported-format list, stores it under a cryptographically random filename in `AUTHORIZED_UPLOAD_DIR`, and creates an `authorized-upload` job. The directory must be private and shared by the Next.js server and the trusted worker. The worker claim API deliberately only claims these upload jobs; it will not claim YouTube, Spotify, or SoundCloud playlist URL jobs. Upload intake does not yet convert audio or expose a download URL. A future worker must validate files more deeply, convert only authorized inputs, report progress, create outputs in private storage, and provide owner-checked download endpoints. Serverless deployments require a private object-storage adapter instead of a local shared directory.
+- Add rate limiting, per-user quotas, concurrency controls, upload storage quotas, and automated cleanup of expired/orphaned files.
+- Basic file signatures and extension checks are not malware scanning or deep media validation. Keep uploaded files private and run the worker with minimal system privileges.
+- Do not expose provider client IDs, worker secrets, owner tokens, or storage paths in client-side code.
+- If introducing arbitrary server-side URL fetches, reject private/reserved IP ranges and revalidate DNS/IPs after every redirect; enforce HTTPS, timeouts, content-type and byte limits, and outbound network controls.
+- Do not bypass DRM, authentication, paywalls, or platform access controls.
+- Run typecheck, lint, integration tests, and a production build before deployment; verify the worker and shared storage on the target host.
