@@ -10,17 +10,20 @@ import DownloadJob from "@/models/DownloadJob";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
-const EXTENSIONS = new Set([".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac"]);
+const MAX_AUDIO_UPLOAD_BYTES = 25 * 1024 * 1024;
+const MAX_VIDEO_UPLOAD_BYTES = 100 * 1024 * 1024;
+const AUDIO_EXTENSIONS = new Set([".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac"]);
+const VIDEO_EXTENSIONS = new Set([".mp4", ".webm"]);
 
-function detectAudioExtension(bytes: Buffer): string | null {
+function detectMediaExtension(bytes: Buffer, requestedExtension: string): string | null {
   if (bytes.length >= 3 && bytes.toString("ascii", 0, 3) === "ID3") return ".mp3";
   if (bytes.length >= 2 && bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0) return ".mp3";
   if (bytes.length >= 12 && bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WAVE") return ".wav";
   if (bytes.length >= 4 && bytes.toString("ascii", 0, 4) === "fLaC") return ".flac";
   if (bytes.length >= 4 && bytes.toString("ascii", 0, 4) === "OggS") return ".ogg";
-  if (bytes.length >= 8 && bytes.toString("ascii", 4, 8) === "ftyp") return ".m4a";
+  if (bytes.length >= 8 && bytes.toString("ascii", 4, 8) === "ftyp" && (requestedExtension === ".m4a" || requestedExtension === ".mp4")) return requestedExtension;
   if (bytes.length >= 7 && bytes.toString("ascii", 0, 7) === "ADIF") return ".aac";
+  if (bytes.length >= 4 && bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) return ".webm";
   return null;
 }
 
@@ -61,7 +64,7 @@ export async function POST(request: Request) {
   const bytes = Buffer.from(await file.arrayBuffer());
   const detectedExtension = detectAudioExtension(bytes);
   if (!detectedExtension || (requestedExtension !== detectedExtension && !(requestedExtension === ".aac" && detectedExtension === ".mp3"))) {
-    return NextResponse.json({ message: "The file contents do not match a supported audio format." }, { status: 415 });
+    return NextResponse.json({ message: "The file contents do not match a supported audio/video format." }, { status: 415 });
   }
 
   const existingToken = readOwnerToken(request);
