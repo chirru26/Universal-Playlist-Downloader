@@ -61,6 +61,19 @@ function safeHttpsUrl(value: unknown): string | undefined {
   }
 }
 
+function safeLicenseUrl(value: unknown): string | undefined {
+  if (typeof value !== "string" || !value) return undefined;
+  try {
+    const url = new URL(value);
+    if (url.protocol === "http:" && ["creativecommons.org", "www.creativecommons.org", "artlibre.org"].includes(url.hostname)) {
+      url.protocol = "https:";
+    }
+    return url.protocol === "https:" ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function safeTrack(item: JamendoApiTrack): JamendoTrack | null {
   const id = String(item.id ?? "");
   if (!/^\d{1,12}$/.test(id)) return null;
@@ -73,7 +86,7 @@ function safeTrack(item: JamendoApiTrack): JamendoTrack | null {
     durationSeconds: typeof item.duration === "number" && Number.isFinite(item.duration) ? Math.max(0, item.duration) : 0,
     ...(safeHttpsUrl(item.image ?? item.album_image) ? { artworkUrl: safeHttpsUrl(item.image ?? item.album_image) } : {}),
     ...(safeHttpsUrl(item.shareurl) ? { trackUrl: safeHttpsUrl(item.shareurl) } : {}),
-    ...(safeHttpsUrl(item.license_ccurl) ? { licenseUrl: safeHttpsUrl(item.license_ccurl) } : {}),
+    ...(safeLicenseUrl(item.license_ccurl) ? { licenseUrl: safeLicenseUrl(item.license_ccurl) } : {}),
     downloadAllowed: item.audiodownload_allowed === true && Boolean(safeHttpsUrl(item.audiodownload)),
   };
 }
