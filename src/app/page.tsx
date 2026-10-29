@@ -207,7 +207,7 @@ export default function HomePage() {
       setTracks(data.tracks ?? []);
       setNextPageToken(data.nextPageToken ?? null);
       setTotalTracks(typeof data.totalTracks === "number" ? data.totalTracks : (data.tracks ?? []).length);
-      setMessage(`Loaded ${(data.tracks ?? []).length}${data.totalTracks ? ` of ${data.totalTracks}` : ""} track(s) in this preview. Audio downloads are not enabled yet.`);
+      setMessage(`Loaded ${(data.tracks ?? []).length}${data.totalTracks ? ` of ${data.totalTracks}` : ""} track(s) in this preview. Provider links show metadata only. Upload audio you own below for MP3 conversion.`);
     } catch {
       setMessage("Could not reach the server. Check your connection and try again.");
     } finally {
