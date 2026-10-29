@@ -229,13 +229,17 @@ export async function getSpotifyPlaylistMetadata(input: URL, pageOffset = 0): Pr
   };
 }
 
-export async function getPlaylistMetadata(input: URL): Promise<PlaylistMetadata> {
+export async function getPlaylistMetadata(input: URL, pageToken?: string): Promise<PlaylistMetadata> {
   const hostname = input.hostname.toLowerCase();
   if (hostname === "youtube.com" || hostname === "www.youtube.com" || hostname === "music.youtube.com") {
-    return getYoutubePlaylistMetadata(input);
+    return getYoutubePlaylistMetadata(input, pageToken);
   }
   if (hostname === "open.spotify.com") {
-    return getSpotifyPlaylistMetadata(input);
+    const pageOffset = pageToken === undefined ? 0 : Number(pageToken);
+    if (!Number.isSafeInteger(pageOffset) || pageOffset < 0 || pageOffset > 100000) {
+      throw new ProviderError("Invalid pagination token.", "INVALID_LINK", 400);
+    }
+    return getSpotifyPlaylistMetadata(input, pageOffset);
   }
   if (hostname === "soundcloud.com" || hostname === "www.soundcloud.com" || hostname === "m.soundcloud.com") {
     throw new ProviderError(
