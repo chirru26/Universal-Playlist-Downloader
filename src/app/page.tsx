@@ -165,7 +165,7 @@ export default function HomePage() {
       });
       setNextPageToken(data.nextPageToken ?? null);
       if (typeof data.totalTracks === "number") setTotalTracks(data.totalTracks);
-      setMessage(`Loaded ${combinedCount}${data.totalTracks ? ` of ${data.totalTracks}` : ""} track(s) in this preview. Audio downloads are not enabled yet.`);
+      setMessage(`Loaded ${combinedCount}${data.totalTracks ? ` of ${data.totalTracks}` : ""} track(s) in this preview. Provider links provide metadata only. Upload audio you own below for MP3 conversion.`);
     } catch {
       setMessage("Could not reach the server to load more tracks. Please try again.");
     } finally {
@@ -228,7 +228,7 @@ export default function HomePage() {
       <section className="hero">
         <div className="eyebrow"><span className="eyebrow-spark">✳</span> YOUR MUSIC, YOUR WAY</div>
         <h1>Your playlists.<br /><span>One simple download.</span></h1>
-        <p className="hero-copy">Bring your playlist link. Preview available metadata.<br className="desktop-break" /> Download features will only support audio you’re authorized to save.</p>
+        <p className="hero-copy">Bring your playlist link. Preview available metadata.<br className="desktop-break" /> Playlist links preview metadata. Upload audio you own below to convert it into a downloadable MP3.</p>
 
         <form className="import-card" onSubmit={handleSubmit}>
           <label className="input-label" htmlFor="playlist-url">PASTE A PLAYLIST URL</label>
@@ -239,7 +239,7 @@ export default function HomePage() {
           </div>
           <p className="input-help" id="url-help"><LockIcon /> Links are validated before metadata requests. Never submit private or sensitive URLs.</p>
           <div className="quality-row">
-            <div><span className="quality-heading">FUTURE OUTPUT QUALITY</span><span className="quality-subtitle">MP3 bitrate selection</span></div>
+            <div><span className="quality-heading">MP3 OUTPUT QUALITY</span><span className="quality-subtitle">Bitrate for converted uploads</span></div>
             <div className="quality-options" role="group" aria-label="MP3 bitrate">
               {qualities.map((item) => <button type="button" key={item} className={quality === item ? "quality-chip selected" : "quality-chip"} aria-pressed={quality === item} onClick={() => setQuality(item)}>{item}</button>)}
               <span className="kbps-label">kbps</span>
@@ -250,11 +250,11 @@ export default function HomePage() {
 
         <section className="playlist-preview upload-panel" aria-label="Upload authorized audio">
           <div className="preview-header"><div><span className="preview-provider">FOR FILES YOU OWN OR MAY PROCESS</span><h2>Upload audio</h2></div><span className="track-count">25 MB max</span></div>
-          <p className="preview-disclaimer">Upload an audio file you own or are authorized to process. The file is stored in a private server directory and is not publicly served.</p>
+          <p className="preview-disclaimer">Upload audio you own or are authorized to process. The background worker converts it to MP3; completed files appear in Recent jobs with a Download MP3 link.</p>
           <form onSubmit={uploadAuthorizedAudio} className="upload-form">
             <label className="input-label" htmlFor="authorized-audio-file">AUDIO FILE (MP3, WAV, FLAC, OGG, M4A, AAC)</label>
             <input id="authorized-audio-file" type="file" accept=".mp3,.wav,.flac,.ogg,.m4a,.aac,audio/*" onChange={(event) => setAudioFile(event.target.files?.[0] ?? null)} />
-            <button type="submit" className="import-button" disabled={uploading || !audioFile}>{uploading ? "Uploading…" : "Upload and queue"}</button>
+            <button type="submit" className="import-button" disabled={uploading || !audioFile}>{uploading ? "Uploading…" : "Upload for MP3 conversion"}</button>
             {uploadMessage && <p className="notice" role="status">{uploadMessage}</p>}
           </form>
         </section>
@@ -272,7 +272,7 @@ export default function HomePage() {
             </article>)}
           </div> : <p className="preview-empty">No previewable tracks were returned for this link.</p>}
           {nextPageToken && <button type="button" className="import-button job-save-button" onClick={() => void loadMoreTracks()} disabled={loadingMoreTracks}>{loadingMoreTracks ? "Loading more tracks…" : totalTracks !== null ? `Load more tracks (${Math.max(0, totalTracks - tracks.length)} remaining)` : "Load more tracks"}</button>}
-          <p className="preview-disclaimer">Metadata preview only. This app does not download audio yet.</p>
+          <p className="preview-disclaimer">Metadata preview only. Playlist URLs provide metadata only. Upload authorized audio above to create a downloadable MP3.</p>
           <button type="button" className="import-button job-save-button" onClick={saveJob} disabled={savingJob || !url}>
             {savingJob ? "Saving…" : "Save to job history"}
           </button>
@@ -297,12 +297,12 @@ export default function HomePage() {
       </section>
 
       <section className="steps-section">
-        <div className="section-kicker">A CLEANER WAY TO COLLECT AUDIO</div>
-        <h2>From link to library.</h2>
+        <div className="section-kicker">PREVIEW PLAYLISTS. CONVERT AUTHORIZED FILES.</div>
+        <h2>From preview to MP3.</h2>
         <div className="steps-grid">
-          <article className="step-card"><span className="step-number">01</span><span className="step-icon"><LinkIcon /></span><h3>Drop your link</h3><p>Paste a supported playlist link and let the server check its metadata access.</p></article>
-          <article className="step-card"><span className="step-number">02</span><span className="step-icon"><SlidersIcon /></span><h3>Set your quality</h3><p>Choose a future output bitrate; available quality depends on the authorized source.</p></article>
-          <article className="step-card"><span className="step-number">03</span><span className="step-icon"><DownloadIcon /></span><h3>Save your tracks</h3><p>Individual and ZIP downloads are planned for supported, authorized audio sources.</p></article>
+          <article className="step-card"><span className="step-number">01</span><span className="step-icon"><LinkIcon /></span><h3>Preview a playlist</h3><p>Paste a supported playlist link to view its title and track metadata.</p></article>
+          <article className="step-card"><span className="step-number">02</span><span className="step-icon"><SlidersIcon /></span><h3>Choose your bitrate</h3><p>Select an MP3 bitrate when uploading audio you own or are authorized to convert.</p></article>
+          <article className="step-card"><span className="step-number">03</span><span className="step-icon"><DownloadIcon /></span><h3>Download your MP3</h3><p>When the background worker completes conversion, download the MP3 from Recent jobs.</p></article>
         </div>
       </section>
 
