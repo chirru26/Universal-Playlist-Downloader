@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 
 const MAX_AUDIO_UPLOAD_BYTES = 25 * 1024 * 1024;
 const MAX_VIDEO_UPLOAD_BYTES = 100 * 1024 * 1024;
+const MAX_MULTIPART_REQUEST_BYTES = MAX_VIDEO_UPLOAD_BYTES + 1024 * 1024;
 const AUDIO_EXTENSIONS = new Set([".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac"]);
 const VIDEO_EXTENSIONS = new Set([".mp4", ".webm"]);
 
@@ -36,6 +37,14 @@ export async function POST(request: Request) {
       { message: "Authorized uploads are not configured. Set AUTHORIZED_UPLOAD_DIR to a private shared directory." },
       { status: 503 },
     );
+  }
+
+  const contentLength = request.headers.get("content-length");
+  if (contentLength !== null) {
+    const requestBytes = Number(contentLength);
+    if (!/^\\d+$/.test(contentLength) || !Number.isSafeInteger(requestBytes) || requestBytes > MAX_MULTIPART_REQUEST_BYTES) {
+      return NextResponse.json({ message: "The upload request exceeds the 100 MB video upload limit." }, { status: 413 });
+    }
   }
 
   let form: FormData;
