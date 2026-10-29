@@ -127,14 +127,14 @@ export default function HomePage() {
     setJamendoHasMore(false);
     try {
       const response = await fetch(`/api/jamendo/search?q=${encodeURIComponent(query)}&offset=0`, { cache: "no-store" });
-      const data = (await response.json()) as { message?: string; tracks?: JamendoTrack[]; hasMore?: boolean; offset?: number };
+      const data = (await response.json()) as { message?: string; tracks?: JamendoTrack[]; hasMore?: boolean; offset?: number; nextOffset?: number };
       if (!response.ok) {
         setJamendoMessage(data.message ?? "Jamendo search failed.");
         return;
       }
       const found = data.tracks ?? [];
       setJamendoTracks(found);
-      setJamendoOffset((data.offset ?? 0) + found.length);
+      setJamendoOffset(data.nextOffset ?? ((data.offset ?? 0) + found.length));
       setJamendoHasMore(Boolean(data.hasMore));
       setJamendoMessage(found.length ? `Found ${found.length} track(s). Download is available only when the artist permits it.` : "No tracks found. Try another song, artist, or genre.");
     } catch {
@@ -160,7 +160,7 @@ export default function HomePage() {
         const ids = new Set(current.map((track) => track.id));
         return [...current, ...more.filter((track) => !ids.has(track.id))];
       });
-      setJamendoOffset((data.offset ?? jamendoOffset) + more.length);
+      setJamendoOffset(data.nextOffset ?? ((data.offset ?? jamendoOffset) + more.length));
       setJamendoHasMore(Boolean(data.hasMore));
       setJamendoMessage(more.length ? `Loaded ${more.length} more track(s).` : "No additional tracks were returned.");
     } catch {
