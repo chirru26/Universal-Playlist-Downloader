@@ -62,7 +62,7 @@ async function getDuration(inputPath) {
 }
 
 async function convert(job, leaseToken) {
-  if (job.sourceType !== "authorized-upload" || !safeKey(job.uploadKey, /^[a-f0-9]{48}\.(mp3|wav|flac|ogg|m4a|aac)$/)) {
+  if (job.sourceType !== "authorized-upload" || !safeKey(job.uploadKey, /^[a-f0-9]{48}\.(mp3|wav|flac|ogg|m4a|aac|mp4|webm)$/)) {
     throw Object.assign(new Error("Unsupported or unsafe worker input."), { code: "INVALID_INPUT" });
   }
   if (![64, 96, 128, 192, 256, 320].includes(job.qualityKbps)) {
@@ -72,7 +72,7 @@ async function convert(job, leaseToken) {
   const inputPath = path.resolve(root, job.uploadKey);
   if (path.dirname(inputPath) !== root) throw Object.assign(new Error("Input path escaped private storage."), { code: "INVALID_INPUT" });
   const inputInfo = await stat(inputPath);
-  const isVideoUpload = /\\.(mp4|webm)$/.test(job.uploadKey);
+  const isVideoUpload = /\.(mp4|webm)$/.test(job.uploadKey);
   const maxInputBytes = isVideoUpload ? 100 * 1024 * 1024 : 25 * 1024 * 1024;
   if (!inputInfo.isFile() || inputInfo.size > maxInputBytes) {
     throw Object.assign(new Error("Input is missing or exceeds the permitted size."), { code: "INVALID_INPUT" });
