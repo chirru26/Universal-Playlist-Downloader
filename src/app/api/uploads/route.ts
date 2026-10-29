@@ -21,7 +21,9 @@ function detectMediaExtension(bytes: Buffer, requestedExtension: string): string
   if (bytes.length >= 12 && bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WAVE") return ".wav";
   if (bytes.length >= 4 && bytes.toString("ascii", 0, 4) === "fLaC") return ".flac";
   if (bytes.length >= 4 && bytes.toString("ascii", 0, 4) === "OggS") return ".ogg";
-  if (bytes.length >= 8 && bytes.toString("ascii", 4, 8) === "ftyp" && (requestedExtension === ".m4a" || requestedExtension === ".mp4")) return requestedExtension;
+  if (bytes.length >= 8 && bytes.toString("ascii", 4, 8) === "ftyp" && (requestedExtension === ".m4a" || requestedExtension === ".mp4")) {
+    return requestedExtension;
+  }
   if (bytes.length >= 7 && bytes.toString("ascii", 0, 7) === "ADIF") return ".aac";
   if (bytes.length >= 4 && bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) return ".webm";
   return null;
@@ -46,23 +48,29 @@ export async function POST(request: Request) {
   const file = form.get("file");
   const qualityValue = Number(form.get("qualityKbps"));
   if (!(file instanceof File)) {
-    return NextResponse.json({ message: "Choose an audio file you own or are authorized to process." }, { status: 400 });
+    return NextResponse.json({ message: "Choose audio or video you own or are authorized to process." }, { status: 400 });
   }
   if (!Number.isInteger(qualityValue) || !SUPPORTED_BITRATES.includes(qualityValue as (typeof SUPPORTED_BITRATES)[number])) {
     return NextResponse.json({ message: "Choose a supported output bitrate." }, { status: 400 });
   }
-  if (file.size < 1 || file.size > MAX_UPLOAD_BYTES) {
-    return NextResponse.json({ message: "Audio files must be between 1 byte and 25 MB." }, { status: 413 });
+
+  const originalName = path.basename(file.name || "authorized-media").replace(/[\u0000-\u001f\u007f]/g, "").slice(0, 255) || "authorized-media";
+  const requestedExtension = path.extname(originalName).toLowerCase();
+  const isVideo = VIDEO_EXTENSIONS.has(requestedExtension);
+  if (!AUDIO_EXTENSIONS.has(requestedExtension) && !isVideo) {
+    return NextResponse.json({ message: "Supported files: MP3, WAV, FLAC, OGG, M4A, AAC, MP4, and WebM." }, { status: 415 });
   }
 
-  const originalName = path.basename(file.name || "audio-upload").replace(/[\u0000-\u001f\u007f]/g, "").slice(0, 255) || "audio-upload";
-  const requestedExtension = path.extname(originalName).toLowerCase();
-  if (!EXTENSIONS.has(requestedExtension)) {
-    return NextResponse.json({ message: "Supported file extensions: MP3, WAV, FLAC, OGG, M4A, and AAC." }, { status: 415 });
+  const maxBytes = isVideo ? MAX_VIDEO_UPLOAD_BYTES : MAX_AUDIO_UPLOAD_BYTES;
+  if (file.size < 1 || file.size > maxBytes) {
+    return NextResponse.json(
+      { message: isVideo ? "MP4/WebM files must be between 1 byte and 100 MB." : "Audio files must be between 1 byte and 25 MB." },
+      { status: 413 },
+    );
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());
-  const detectedExtension = detectAudioExtension(bytes);
+  const detectedExtension = detectMediaExtension(bytes, requestedExtension);
   if (!detectedExtension || (requestedExtension !== detectedExtension && !(requestedExtension === ".aac" && detectedExtension === ".mp3"))) {
     return NextResponse.json({ message: "The file contents do not match a supported audio/video format." }, { status: 415 });
   }
@@ -88,7 +96,7 @@ export async function POST(request: Request) {
     try {
       const job = await DownloadJob.create({
         ownerTokenHash,
-        sourceUrl: "authorized-upload://audio-file",
+        sourceUrl: "authorized-upload://media-file",
         sourceType: "authorized-upload",
         uploadKey,
         originalFilename: originalName,
@@ -110,7 +118,7 @@ export async function POST(request: Request) {
           progressPercent: job.progressPercent,
           createdAt: job.createdAt,
         },
-        message: "Upload accepted and queued. Once the background worker finishes conversion, use the Download MP3 link in Recent jobs.",
+        message: "Authorized media accepted and queued. After the worker converts it, use Download MP3 in Recent jobs.",
       }, { status: 201 });
       if (!existingToken) setOwnerCookie(response, ownerToken);
       return response;
