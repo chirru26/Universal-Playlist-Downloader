@@ -72,7 +72,9 @@ async function convert(job, leaseToken) {
   const inputPath = path.resolve(root, job.uploadKey);
   if (path.dirname(inputPath) !== root) throw Object.assign(new Error("Input path escaped private storage."), { code: "INVALID_INPUT" });
   const inputInfo = await stat(inputPath);
-  if (!inputInfo.isFile() || inputInfo.size > 25 * 1024 * 1024) {
+  const isVideoUpload = /\\.(mp4|webm)$/.test(job.uploadKey);
+  const maxInputBytes = isVideoUpload ? 100 * 1024 * 1024 : 25 * 1024 * 1024;
+  if (!inputInfo.isFile() || inputInfo.size > maxInputBytes) {
     throw Object.assign(new Error("Input is missing or exceeds the permitted size."), { code: "INVALID_INPUT" });
   }
 
