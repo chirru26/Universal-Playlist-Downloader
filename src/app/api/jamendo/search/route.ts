@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 
   try {
     const result = await searchJamendoTracks(query, offsetValue);
-    return NextResponse.json({ ...result, offset: offsetValue, limit: 20 });
+    return NextResponse.json({ ...result, offset: offsetValue, limit: 20, nextOffset: offsetValue + (result.hasMore ? 20 : result.tracks.length) });
   } catch (error) {
     if (error instanceof JamendoError) {
       return NextResponse.json({ message: error.message }, { status: error.statusCode });
