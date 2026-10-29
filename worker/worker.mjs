@@ -8,7 +8,7 @@ async function loadLocalEnvFile() {
     const content = await readFile(path.resolve(".env.local"), "utf8");
     for (const line of content.split(/\r?\n/)) {
       const match = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
-      if (!match || match[1] in process.env) continue;
+      if (!match || process.env[match[1]] !== undefined) continue;
 
       let value = match[2];
       if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
