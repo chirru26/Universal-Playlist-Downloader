@@ -36,6 +36,9 @@ export default function HomePage() {
   const [playlistTitle, setPlaylistTitle] = useState("");
   const [tracks, setTracks] = useState<PreviewTrack[]>([]);
   const [provider, setProvider] = useState("");
+  const [nextPageToken, setNextPageToken] = useState<string | null>(null);
+  const [totalTracks, setTotalTracks] = useState<number | null>(null);
+  const [loadingMoreTracks, setLoadingMoreTracks] = useState(false);
   const [savingJob, setSavingJob] = useState(false);
   const [jobMessage, setJobMessage] = useState("");
   const [jobs, setJobs] = useState<JobSummary[]>([]);
@@ -128,12 +131,56 @@ export default function HomePage() {
     }
   }
 
+  async function loadMoreTracks() {
+    if (!nextPageToken || loadingMoreTracks) return;
+    setLoadingMoreTracks(true);
+    try {
+      const response = await fetch("/api/playlist/metadata", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, pageToken: nextPageToken }),
+      });
+      const data = (await response.json()) as {
+        message?: string;
+        tracks?: PreviewTrack[];
+        nextPageToken?: string | null;
+        totalTracks?: number;
+      };
+      if (!response.ok) {
+        setMessage(data.message ?? "Could not load the next page of tracks.");
+        return;
+      }
+
+      const additions = data.tracks ?? [];
+      let combinedCount = tracks.length;
+      setTracks((current) => {
+        const seen = new Set(current.map((track) => track.providerTrackId));
+        const uniqueAdditions = additions.filter((track) => {
+          if (seen.has(track.providerTrackId)) return false;
+          seen.add(track.providerTrackId);
+          return true;
+        });
+        combinedCount = current.length + uniqueAdditions.length;
+        return [...current, ...uniqueAdditions];
+      });
+      setNextPageToken(data.nextPageToken ?? null);
+      if (typeof data.totalTracks === "number") setTotalTracks(data.totalTracks);
+      setMessage(`Loaded ${combinedCount}${data.totalTracks ? ` of ${data.totalTracks}` : ""} track(s) in this preview. Audio downloads are not enabled yet.`);
+    } catch {
+      setMessage("Could not reach the server to load more tracks. Please try again.");
+    } finally {
+      setLoadingMoreTracks(false);
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
     setPlaylistTitle("");
     setTracks([]);
     setProvider("");
+    setNextPageToken(null);
+    setTotalTracks(null);
     setBusy(true);
     try {
       const response = await fetch("/api/playlist/metadata", {
@@ -147,6 +194,7 @@ export default function HomePage() {
         provider?: string;
         tracks?: PreviewTrack[];
         totalTracks?: number;
+        nextPageToken?: string | null;
       };
 
       if (!response.ok) {
@@ -157,7 +205,9 @@ export default function HomePage() {
       setPlaylistTitle(data.title ?? "Playlist preview");
       setProvider(data.provider ?? "");
       setTracks(data.tracks ?? []);
-      setMessage(`Loaded ${(data.tracks ?? []).length} track(s) in this preview. Audio downloads are not enabled yet.`);
+      setNextPageToken(data.nextPageToken ?? null);
+      setTotalTracks(typeof data.totalTracks === "number" ? data.totalTracks : (data.tracks ?? []).length);
+      setMessage(`Loaded ${(data.tracks ?? []).length}${data.totalTracks ? ` of ${data.totalTracks}` : ""} track(s) in this preview. Audio downloads are not enabled yet.`);
     } catch {
       setMessage("Could not reach the server. Check your connection and try again.");
     } finally {
@@ -212,7 +262,7 @@ export default function HomePage() {
         {playlistTitle && <section className="playlist-preview" aria-label="Playlist preview">
           <div className="preview-header">
             <div><span className="preview-provider">{provider.toUpperCase()} · PREVIEW</span><h2>{playlistTitle}</h2></div>
-            <span className="track-count">{tracks.length} tracks</span>
+            <span className="track-count">{totalTracks !== null && totalTracks > tracks.length ? `${tracks.length} of ${totalTracks} tracks` : `${tracks.length} tracks`}</span>
           </div>
           {tracks.length > 0 ? <div className="track-list">
             {tracks.map((track, index) => <article className="track-row" key={track.providerTrackId || index}>
@@ -221,6 +271,7 @@ export default function HomePage() {
               <span className="track-duration">{formatDuration(track.durationSeconds)}</span>
             </article>)}
           </div> : <p className="preview-empty">No previewable tracks were returned for this link.</p>}
+          {nextPageToken && <button type="button" className="import-button job-save-button" onClick={() => void loadMoreTracks()} disabled={loadingMoreTracks}>{loadingMoreTracks ? "Loading more tracks…" : totalTracks !== null ? `Load more tracks (${Math.max(0, totalTracks - tracks.length)} remaining)` : "Load more tracks"}</button>}
           <p className="preview-disclaimer">Metadata preview only. This app does not download audio yet.</p>
           <button type="button" className="import-button job-save-button" onClick={saveJob} disabled={savingJob || !url}>
             {savingJob ? "Saving…" : "Save to job history"}
