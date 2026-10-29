@@ -151,7 +151,7 @@ export async function getJamendoDownloadUrl(trackId: string): Promise<string> {
 
   const parsed = new URL(downloadUrl);
   const allowedHost = parsed.hostname === "storage.jamendo.com" || /^[a-z0-9-]+\.storage\.jamendo\.com$/.test(parsed.hostname);
-  if (!allowedHost || !parsed.pathname.startsWith(`/download/track/${trackId}/`)) {
+  if (parsed.username || parsed.password || parsed.port || !allowedHost || !parsed.pathname.startsWith(`/download/track/${trackId}/`)) {
     throw new JamendoError("Jamendo returned an unexpected download location.", 502);
   }
   return parsed.toString();
