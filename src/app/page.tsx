@@ -55,7 +55,7 @@ export default function HomePage() {
   const [jobMessage, setJobMessage] = useState("");
   const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [cancellingJobId, setCancellingJobId] = useState<string | null>(null);
-  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [audioFiles, setAudioFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState("");
   const [jamendoQuery, setJamendoQuery] = useState("");
@@ -84,29 +84,59 @@ export default function HomePage() {
     return () => window.clearInterval(timer);
   }, [jobs, refreshJobs]);
 
-  async function uploadAuthorizedAudio(event: FormEvent<HTMLFormElement>) {
+  async function uploadAuthorizedMedia(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!audioFile) {
-      setUploadMessage("Choose an audio file first.");
+    if (audioFiles.length === 0) {
+      setUploadMessage("Choose at least one audio or video file first.");
       return;
     }
+    if (audioFiles.length > 5) {
+      setUploadMessage("Select at most 5 files at a time. The app allows up to 5 active jobs per browser.");
+      return;
+    }
+
     setUploading(true);
     setUploadMessage("");
+    let queuedCount = 0;
+    const failures: string[] = [];
+
     try {
-      const form = new FormData();
-      form.set("file", audioFile);
-      form.set("qualityKbps", quality);
-      const response = await fetch("/api/uploads", { method: "POST", body: form });
-      const data = (await response.json()) as { message?: string };
-      setUploadMessage(data.message ?? (response.ok ? "Upload saved." : "Upload failed."));
-      if (response.ok) {
-        setAudioFile(null);
-        const input = document.getElementById("authorized-audio-file") as HTMLInputElement | null;
-        if (input) input.value = "";
+      for (const file of audioFiles) {
+        const form = new FormData();
+        form.set("file", file);
+        form.set("qualityKbps", quality);
+
+        let response: Response;
+        let data: { message?: string };
+        try {
+          response = await fetch("/api/uploads", { method: "POST", body: form });
+          data = (await response.json()) as { message?: string };
+        } catch {
+          failures.push(`${file.name}: could not reach the upload server.`);
+          break;
+        }
+
+        if (!response.ok) {
+          failures.push(`${file.name}: ${data.message ?? "upload failed"}`);
+          if (response.status === 429) break;
+          continue;
+        }
+
+        queuedCount += 1;
+        setUploadMessage(`Uploading and queueing: ${queuedCount} of ${audioFiles.length} file(s)…`);
         await refreshJobs();
       }
-    } catch {
-      setUploadMessage("Could not reach the server to upload this file.");
+
+      if (queuedCount === audioFiles.length) {
+        setUploadMessage(`Queued all ${queuedCount} file(s). Completed MP3s will appear in Recent jobs when the worker finishes.`);
+      } else {
+        setUploadMessage(`Queued ${queuedCount} of ${audioFiles.length} file(s). ${failures.join(" ")} Reselect only files that were not queued to retry.`);
+      }
+
+      if (queuedCount > 0) await refreshJobs();
+      setAudioFiles([]);
+      const input = document.getElementById("authorized-audio-file") as HTMLInputElement | null;
+      if (input) input.value = "";
     } finally {
       setUploading(false);
     }
@@ -368,11 +398,11 @@ export default function HomePage() {
 
         <section className="playlist-preview upload-panel" aria-label="Upload authorized media">
           <div className="preview-header"><div><span className="preview-provider">FOR FILES YOU OWN OR MAY PROCESS</span><h2>Upload for MP3 conversion</h2></div><span className="track-count">25 MB audio · 100 MB video</span></div>
-          <p className="preview-disclaimer">Upload audio you own or are authorized to process. You can also upload an MP4/WebM video you own (for example, one downloaded from your own YouTube Studio) and convert its audio to MP3.</p>
-          <form onSubmit={uploadAuthorizedAudio} className="upload-form">
-            <label className="input-label" htmlFor="authorized-audio-file">AUDIO OR VIDEO FILE (MP3, WAV, FLAC, OGG, M4A, AAC, MP4, WEBM)</label>
-            <input id="authorized-audio-file" type="file" accept=".mp3,.wav,.flac,.ogg,.m4a,.aac,.mp4,.webm,audio/*,video/mp4,video/webm" onChange={(event) => setAudioFile(event.target.files?.[0] ?? null)} />
-            <button type="submit" className="import-button" disabled={uploading || !audioFile}>{uploading ? "Uploading…" : "Upload for MP3 conversion"}</button>
+          <p className="preview-disclaimer">Upload up to 5 files at a time that you own or are authorized to process. You can select multiple eligible MP4/WebM videos downloaded from your own YouTube Studio; the app queues them one at a time for MP3 conversion.</p>
+          <form onSubmit={uploadAuthorizedMedia} className="upload-form">
+            <label className="input-label" htmlFor="authorized-audio-file">AUDIO OR VIDEO FILES (MP3, WAV, FLAC, OGG, M4A, AAC, MP4, WEBM)</label>
+            <input id="authorized-audio-file" type="file" accept=".mp3,.wav,.flac,.ogg,.m4a,.aac,.mp4,.webm,audio/*,video/mp4,video/webm" multiple onChange={(event) => setAudioFiles(Array.from(event.target.files ?? []))} />
+            <button type="submit" className="import-button" disabled={uploading || audioFiles.length === 0}>{uploading ? "Uploading…" : `Upload ${audioFiles.length || ""} file${audioFiles.length === 1 ? "" : "s"} for MP3 conversion` }</button>
             {uploadMessage && <p className="notice" role="status">{uploadMessage}</p>}
           </form>
         </section>
